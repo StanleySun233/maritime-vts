@@ -1,0 +1,22 @@
+gpt_4o:
+  api_key: "sk-proj-xxxxx"
+  type: "openai"
+  model_name: "gpt-4o"
+  base_url: "https://api.openai.com/v1"
+
+duck7b:
+  type: "ollama"
+  model_name: "duckdb-nsql:7b"
+  base_url: "http://172.20.116.91:11434"
+
+deepseekv3-full:
+  api_key: "sk-or-v1-xxxxx"
+  type: "openai"
+  model_name: "deepseek/deepseek-chat-v3-0324:free"
+  base_url: "https://openrouter.ai/api/v1"
+
+OURS:
+  api_key: "ragflow-xxxxx"
+  type: "ragflow"
+  model_name: "xxxxx"
+  base_url: "http://172.20.116.91:1080"

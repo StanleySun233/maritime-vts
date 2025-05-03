@@ -1,0 +1,3 @@
+- environment: MYSQL 8.0
+- use general MYSQL QUERY.
+- ST_like function is available to use.

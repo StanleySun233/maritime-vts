@@ -1,0 +1,462 @@
+{
+  "train": [
+    {
+      "difficulty": "medium",
+      "question": "What is the current speed and location of vessel sounds like ALABAMA?",
+      "query": "SELECT\n  sog,\n  latitude,\n  longitude \nFROM\n  ship_ais \nWHERE\n  NAME LIKE '%ALABAMA%' \nORDER BY\n  last_updated DESC \n  LIMIT 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "easy",
+      "question": "List vessel name of tanker in the Strait.",
+      "query": "SELECT DISTINCT\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sd.object_type = 'strait' \n  AND sa.type = 'TANKER';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "easy",
+      "question": "show name and location of ship whose speed is lower than 0.5 order by name, only show 20 units.",
+      "query": "SELECT DISTINCT NAME\n  ,\n  latitude,\n  longitude \nFROM\n  ship_ais \nWHERE\n  sog < 0.5 \nORDER BY\nNAME \n  LIMIT 20;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "easy",
+      "question": "What is the current speed and location of vessel KPSB 5.",
+      "query": "SELECT\n  sog,\n  latitude,\n  longitude \nFROM\n  ship_ais \nWHERE\n  NAME = 'KPSB 5' \nORDER BY\n  last_updated DESC \n  LIMIT 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "easy",
+      "question": "Show me names of all the container in the Strait",
+      "query": "SELECT DISTINCT\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sa.type = 'CONTAINER SHIP' \n  AND sd.object_type = 'strait';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "easy",
+      "question": "Is there any vessel with draft greater than 15 meters. show the mmsi, name and draft of these ships.",
+      "query": "SELECT mmsi, name, draft FROM ship_ais WHERE draft > 15;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "List MMSI and name of VLCCs and deep-drought vessel (draft greater than 15 meters) in the Strait.",
+      "query": "SELECT DISTINCT\n  sa.mmsi,\n  sa.NAME,\n  sa.draft\nFROM\n  ship_ais sa\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sa.draft > 15 \n  AND sd.object_type = 'strait';",
+      "knowledge": "1. Definition 1: A vessel having a draught of 15 meters or more shall be deemed to be a deep draught vessel, also written as DDV."
+    },
+    {
+      "difficulty": "medium",
+      "question": "List MMSI and name of VLCCs in the Strait.",
+      "query": "SELECT distinct \n  sa.mmsi,\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sa.type = 'TANKER' \n  AND sa.length >= 300 \n  AND sd.object_type = 'strait' ",
+      "knowledge": "1. Definition 2: VLCC means the ship type is TANKER and the ship length is greater than or equal to 300 meters. VLCC field does not exist in the database, so the meaning of VLCC needs to be replaced with the above explanation."
+    },
+    {
+      "difficulty": "medium",
+      "question": "Show MMSI and name of VLCCs (tanker larger than 300m)",
+      "query": "SELECT DISTINCT mmsi, name FROM ship_ais WHERE type = 'TANKER' AND length >= 300;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "List MMSI and name of DDVs in the Strait.",
+      "query": "SELECT DISTINCT\n  sa.mmsi,\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sd.object_type = 'strait' \n  AND sa.draft >= 15 ",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "List mmsi and name of all the ships arriving to Singpaore Pilot Boarding Ground 'PEBGA'",
+      "query": "SELECT\n  mmsi,\nNAME \nFROM\n  ship_ais \nWHERE\n  ptms_destination LIKE '%PEBGA%' \nGROUP BY\n  mmsi,\nNAME \nORDER BY\n  MAX(last_updated) DESC;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "List all the names and mmsi of ship with location less than 1 km near pilot_boarding_ground",
+      "query": "SELECT DISTINCT\n  sa.mmsi,\n  sa.NAME,\n  sa.latitude,\n  sa.longitude\nFROM\n  ship_ais AS sa\n  JOIN shp_data AS sd ON sd.object_type = 'pilot_boarding_ground' \nWHERE\n  ST_Distance_Sphere (sa.POINT, sd.geom) <= 1000;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "list Top 5 biggest ships' mmsi, name and length in the Strait",
+      "query": "WITH ranked_ships AS (\n  SELECT\n    sa.mmsi,\n    sa.NAME,\n    sa.length,\n    ROW_NUMBER() OVER (PARTITION BY sa.mmsi ORDER BY sa.length DESC) AS rn \n  FROM\n    ship_ais sa\n    JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \n  WHERE\nsd.object_type = 'strait') SELECT\nmmsi,\nNAME,\nlength \nFROM\n  ranked_ships \nWHERE\n  rn = 1 \nORDER BY\n  length DESC \n  LIMIT 5;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "list Top 5 fastest ships' mmsi, name and speed in the Strait",
+      "query": "WITH ranked_ships AS (\n  SELECT\n    sa.mmsi,\n    sa.NAME,\n    sa.sog,\n    ROW_NUMBER() OVER (PARTITION BY sa.mmsi ORDER BY sa.sog DESC) AS rn \n  FROM\n    ship_ais sa\n    JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \n  WHERE\nsd.object_type = 'strait') SELECT\nmmsi,\nNAME,\nsog \nFROM\n  ranked_ships \nWHERE\n  rn = 1 \nORDER BY\n  sog DESC \n  LIMIT 5;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "Show mmsi and names of inbound container ship.",
+      "query": "SELECT\n  sa.mmsi,\n  sa.NAME \nFROM\n  ship_ais sa\n  LEFT JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \n  AND sd.object_name = 'Singapore Port' \nWHERE\n  sa.type LIKE '%container%' \n  AND (\n    sa.ptms_destination LIKE '%PEBGA%' \n    OR sa.ptms_destination LIKE '%PEBGB%' \n    OR sa.ptms_destination LIKE '%PEBGC%' \n    OR sa.ptms_destination LIKE '%PWBGA%' \n    OR sa.ptms_destination LIKE '%PWBGB%' \n    OR sa.ptms_destination LIKE '%PJSB%' \n    OR sa.ptms_destination LIKE '%PSBG%' \n    OR sa.ptms_destination LIKE '%PBBG%' \n    OR sa.ptms_destination LIKE 'SG' \n    OR sa.ptms_destination LIKE 'Singapore' \n  OR sa.ptms_destination LIKE 'SIN') \n  AND sd.object_name IS NULL \nGROUP BY\n  mmsi,\nNAME \nORDER BY\n  MAX(last_updated) DESC;",
+      "knowledge": "1. The conditions for identifying ships entering or scheduling to Singapore Port: Condition 1, the ship’s ptms_destination includes any of PEBGA, PEBGB, PEBGC, PWBGA, PWBGB, PJSB, PSBG, PBBG, SG, Singapore, SIN; and Condition 2, the ship is not in Singapore Port."
+    },
+    {
+      "difficulty": "medium",
+      "question": "Show mmsi and names of bulk carrier that is schedule to enter Singapore port.",
+      "query": "SELECT\n  mmsi,\nNAME \nFROM\n  ship_ais \nWHERE\n  type like '%bulk carrier%' \n  AND (\n    ptms_destination LIKE '%PEBGA%' \n    OR ptms_destination LIKE '%PEBGB%' \n    OR ptms_destination LIKE '%PEBGC%' \n    OR ptms_destination LIKE '%PWBGA%' \n    OR ptms_destination LIKE '%PWBGB%' \n    OR ptms_destination LIKE '%PJSB%' \n    OR ptms_destination LIKE '%PSBG%' \n    OR ptms_destination LIKE '%PBBG%' \n    OR ptms_destination LIKE '%SG%' \n    OR ptms_destination LIKE '%Singapore%' \n  OR ptms_destination LIKE '%SIN%') \nGROUP BY\n  mmsi,\nNAME \nORDER BY\n  MAX(last_updated) DESC;",
+      "knowledge": "1. The conditions for identifying ships entering or scheduling to Singapore Port: Condition 1, the ship’s ptms_destination includes any of PEBGA, PEBGB, PEBGC, PWBGA, PWBGB, PJSB, PSBG, PBBG, SG, Singapore, SIN; and Condition 2, the ship is not in Singapore Port."
+    },
+    {
+      "difficulty": "medium",
+      "question": "Show mmsi and names of bulk carrier that is going to enter Singapore port.",
+      "query": "SELECT\n  mmsi,\nNAME \nFROM\n  ship_ais \nWHERE\n  type like '%bulk carrier%' \n  AND (\n    ptms_destination LIKE '%PEBGA%' \n    OR ptms_destination LIKE '%PEBGB%' \n    OR ptms_destination LIKE '%PEBGC%' \n    OR ptms_destination LIKE '%PWBGA%' \n    OR ptms_destination LIKE '%PWBGB%' \n    OR ptms_destination LIKE '%PJSB%' \n    OR ptms_destination LIKE '%PSBG%' \n    OR ptms_destination LIKE '%PBBG%' \n    OR ptms_destination LIKE '%SG%' \n    OR ptms_destination LIKE '%Singapore%' \n  OR ptms_destination LIKE '%SIN%') \nGROUP BY\n  mmsi,\nNAME \nORDER BY\n  MAX(last_updated) DESC;",
+      "knowledge": "1.. The conditions for identifying ships entering or scheduling to Singapore Port: Condition 1, the ship’s ptms_destination includes any of PEBGA, PEBGB, PEBGC, PWBGA, PWBGB, PJSB, PSBG, PBBG, SG, Singapore, SIN; and Condition 2, the ship is not in Singapore Port."
+    },
+    {
+      "difficulty": "extra_hard",
+      "question": "List all vessel pairs with the following details: name1, name2, eta1, eta2, and destination, where: the difference of their ETA (eta1 and eta2) are within 30 minutes and their destination are pilot station PEBGA",
+      "query": "SELECT\n  a.NAME AS name1,\n  b.NAME AS name2,\n  a.eta AS eta1,\n  b.eta AS eta2,\n  a.ptms_destination \nFROM\n  ship_ais a\n  JOIN ship_ais b ON a.mmsi < b.mmsi \nWHERE\n  ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 30 \n  AND a.ptms_destination = 'PEBGA' \n  AND b.ptms_destination = 'PEBGA';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "extra_hard",
+      "question": "Among the ships that are about to arrive at PWBGA, list the pairs of ships with exactly the same arrival time, and give mmsi1, mmsi2, name1, name2, eta, destination.",
+      "query": "SELECT\n  a.mmsi AS mmsi1,\n  b.mmsi AS mmsi2,\n  a.NAME AS name1,\n  b.NAME AS name2,\n  a.eta,\n  a.ptms_destination AS destination \nFROM\n  ship_ais a\n  JOIN ship_ais b ON a.eta = b.eta \n  AND a.mmsi < b.mmsi \nWHERE\n  a.ptms_destination = 'PWBGA' \n  AND b.ptms_destination = 'PWBGA';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "Which vessels lost communication with the shore base for over 5 minutes in the past 15-min, and what are their name and last known positions?",
+      "query": "WITH ranked_ships AS (\n  SELECT\n    name,\n    latitude,\n    longitude,\n    last_updated,\n    ROW_NUMBER() OVER (PARTITION BY name ORDER BY last_updated DESC) AS rn\n  FROM ship_ais_quarter\n  WHERE TIMESTAMPDIFF(MINUTE, last_updated, @CNOW) > 5\n    AND TIMESTAMPDIFF(MINUTE, last_updated, @CNOW) <= 15\n)\nSELECT name, latitude, longitude\nFROM ranked_ships\nWHERE rn = 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "list mmsi and names of all VLCC which speed is larger than 12 kn",
+      "query": "SELECT DISTINCT mmsi, name FROM ship_ais WHERE type = 'TANKER' AND length >= 300 AND sog > 12;",
+      "knowledge": "1. Definition 2: VLCC means the ship type is TANKER and the ship length is greater than or equal to 300 meters. VLCC field does not exist in the database, so the meaning of VLCC needs to be replaced with the above explanation."
+    },
+    {
+      "difficulty": "hard",
+      "question": "list mmsi and names of all the deep draught vessels which against the speed requirements",
+      "query": "SELECT DISTINCT sa.mmsi, sa.name FROM ship_ais sa JOIN shp_data sd ON ST_Intersects(sa.point, sd.geom) WHERE sa.draft >= 15 AND (sd.object_type = 'strait' AND (sd.object_name LIKE 'DEEPWATER ROUTE' OR sd.object_name LIKE 'WESTBOUND SPECIFIC')) AND sa.sog > 12;",
+      "knowledge": "1. Definition 1: A vessel having a draught of 15 meters or more shall be deemed to be a deep draught vessel, also written as DDV.\n2. Navigation speed rules for VLCC and DDV: 1. If the vessel is in Strait of DEEPWATER ROUTE or WESTBOUND SPECIFIC area, its speed cannot exceed 12 knots. 2. If it is not in this area, there is no speed requirement. The question may involve the Strait of Malacca, which does not need to be taken into account in the conditions."
+    },
+    {
+      "difficulty": "extra_hard",
+      "question": "List all vessel pairs with the following details: name1, name2, eta1, eta2, and destination, where: the estimated arrival times (eta1 and eta2) are within 30 minutes of each other and both vessels share the same destination, which is a pilot station.",
+      "query": "SELECT\n  a.mmsi AS mmsi1,\n  b.mmsi AS mmsi2,\n  a.NAME AS name1,\n  b.NAME AS name2,\n  a.eta AS eta1,\n  b.eta AS eta2,\n  a.ptms_destination \nFROM\n  ship_ais a\n  JOIN ship_ais b ON a.ptms_destination = b.ptms_destination \nWHERE\n  ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 30 \n  AND a.mmsi < b.mmsi \n  AND a.ptms_destination IN ('PEBGA', 'PEBGB', 'PEBGC', 'PWBGA', 'PWBGB', 'PJSB', 'PSBG', 'PBBG');",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "list mmsi and names of all the deep draught vessels which against the location requirements",
+      "query": "SELECT DISTINCT\n  sa.mmsi,\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd_monitor ON sd_monitor.object_name = 'DEEPWATER MONITOR'\n  JOIN shp_data sd_route ON sd_route.object_name = 'DEEPWATER ROUTE' \nWHERE\n  (sa.type = 'TANKER' AND sa.length >= 300 OR sa.draft >= 15) \n  AND ST_Contains (sd_monitor.geom, sa.POINT) \n  AND NOT ST_Contains (sd_route.geom, sa.POINT) ",
+      "knowledge": "1. Navigation location rules for VLCC and DDV: 1. If the vessel is in the DEEPWATER MONITOR area, it must sail in Strait of DEEPWATER ROUTE area. 2. If the vessel is not in Strait of DEEPWATER MONITOR area, it does not need to follow this rule. The question may involve the Strait of Malacca, which does not need to be taken into account in the conditions.\n2. Definition 2: VLCC means the ship type is TANKER and the ship length is greater than or equal to 300 meters. VLCC field does not exist in the database, so the meaning of VLCC needs to be replaced with the above explanation."
+    },
+    {
+      "difficulty": "hard",
+      "question": "list mmsi names and location of all the deep draught vessels which against the navigation rules",
+      "query": "WITH vlcc_ddv AS (\n  SELECT\n    mmsi,\n    NAME,\n    POINT,\n    longitude,\n    latitude,\n    sog \n  FROM\n    ship_ais \n  WHERE\n    (type = 'TANKER' AND length >= 300) \nOR draft >= 15),\nlocation_violation AS (\n  SELECT\n    v.mmsi,\n    v.NAME,\n    v.longitude,\n    v.latitude \n  FROM\n    vlcc_ddv v\n    JOIN shp_data s1 ON ST_Contains (s1.geom, v.POINT) \n    AND s1.object_name LIKE '%DEEPWATER MONITOR%'\n    LEFT JOIN shp_data s2 ON ST_Contains (s2.geom, v.POINT) \n    AND s2.object_name LIKE '%DEEPWATER ROUTE%' \n  WHERE\ns2.object_name IS NULL),\nspeed_violation AS (\n  SELECT DISTINCT\n    v.mmsi,\n    v.NAME,\n    v.longitude,\n    v.latitude \n  FROM\n    vlcc_ddv v\n    JOIN shp_data s ON ST_Contains (s.geom, v.POINT) \n    AND (s.object_name LIKE '%DEEPWATER ROUTE%' OR s.object_name LIKE '%WESTBOUND SPECIFIC%') \nAND v.sog > 12) SELECT DISTINCT\nmmsi,\nNAME,\nlongitude,\nlatitude \nFROM\n  location_violation UNION\nSELECT DISTINCT\n  mmsi,\n  NAME,\n  longitude,\n  latitude \nFROM\n  speed_violation;",
+      "knowledge": "1. Definition 1: A vessel having a draught of 15 meters or more shall be deemed to be a deep draught vessel, also written as DDV.\n2. Navigation speed rules for VLCC and DDV: 1. If the vessel is in Strait of DEEPWATER ROUTE or WESTBOUND SPECIFIC area, its speed cannot exceed 12 knots. 2. If it is not in this area, there is no speed requirement. The question may involve the Strait of Malacca, which does not need to be taken into account in the conditions.\n3. Definition 2: VLCC means the ship type is TANKER and the ship length is greater than or equal to 300 meters. VLCC field does not exist in the database, so the meaning of VLCC needs to be replaced with the above explanation.\n4. Navigation location rules for VLCC and DDV: 1. If the vessel is in the DEEPWATER MONITOR area, it must sail in Strait of DEEPWATER ROUTE area. 2. If the vessel is not in Strait of DEEPWATER MONITOR area, it does not need to follow this rule. The question may involve the Strait of Malacca, which does not need to be taken into account in the conditions."
+    },
+    {
+      "difficulty": "hard",
+      "question": "where is West Coast? show location",
+      "query": "SELECT name, latitude, longitude FROM ship_ais WHERE name = 'West Coast';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "where is Tanker No 4? show location",
+      "query": "SELECT latitude, longitude FROM ship_ais WHERE name = 'TANKER NO 4' ORDER BY last_updated DESC LIMIT 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "how many ship are going to AVLCC?",
+      "query": "SELECT COUNT(DISTINCT mmsi) FROM ship_ais WHERE ptms_destination = 'AVLCC';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "where is vessel named West Coast? show location",
+      "query": "SELECT latitude, longitude, sog FROM ship_ais WHERE name = 'WEST COAST' ORDER BY last_updated DESC LIMIT 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "where is Victoria? show location",
+      "query": "SELECT latitude, longitude FROM ship_ais WHERE name like '%VICTORIA%';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Show me MMSI and name of ships arriving to the SG port in the past 10 minutes?",
+      "query": "SELECT mmsi, name FROM ship_ais WHERE ptms_destination IN ('PEBGA', 'PEBGB', 'PEBGC', 'PWBGA', 'PWBGB', 'PJSB', 'PSBG', 'PBBG', 'SG', 'Singapore', 'SIN') AND eta BETWEEN @CNOW AND DATE_ADD(@CNOW, INTERVAL 30 MINUTE) GROUP BY mmsi, name ORDER BY MAX(last_updated) DESC;",
+      "knowledge": "1. The conditions for identifying ships entering or scheduling to Singapore Port: Condition 1, the ship’s ptms_destination includes any of PEBGA, PEBGB, PEBGC, PWBGA, PWBGB, PJSB, PSBG, PBBG, SG, Singapore, SIN; and Condition 2, the ship is not in Singapore Port."
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which vessels were in the Zone A in the past 10 minutes? show mmsi and name",
+      "query": "SELECT DISTINCT\n  saq.mmsi,\n  saq.NAME \nFROM\n  ship_ais_quarter saq\n  JOIN shp_data sd ON sd.object_name = 'Zone A' \n  AND ST_Contains (sd.geom, saq.POINT) \nWHERE\n  saq.last_updated >= DATE_SUB((select max(last_updated) from ship_ais), INTERVAL 10 MINUTE);",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Show warning information in the Strait, and vessel information during the past 10 minutes, show the ship pair name and strait name?",
+      "query": "SELECT\n  sa1.NAME AS ship1_name,\n  sa2.NAME AS ship2_name,\n  sd.object_name\nFROM\n  warn_single ws\n  JOIN ship_ais sa1 ON ws.ship1 = sa1.mmsi\n  JOIN ship_ais sa2 ON ws.ship2 = sa2.mmsi\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa1.POINT) \n  OR ST_Contains (sd.geom, sa2.POINT) \nWHERE\n  sd.object_type = 'strait' \n  AND TIMESTAMPDIFF(MINUTE, ws.dt, '2022-12-07 17:12:59') <= 10;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Could you show the latest one vessel pair name which has warn information.\n\n",
+      "query": "SELECT\n  sa1.NAME AS ship1_name,\n  sa2.NAME AS ship2_name \nFROM\n  warn_single ws\n  JOIN ship_ais sa1 ON ws.ship1 = sa1.mmsi\n  JOIN ship_ais sa2 ON ws.ship2 = sa2.mmsi \nWHERE\n  ws.dt = (SELECT MAX(dt) FROM warn_single) \n  LIMIT 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Gives name of departing ships (sog >3) at anchorage area.",
+      "query": "SELECT DISTINCT\n  sa.NAME,\n  sa.sog,\n  sa.longitude,\n  sa.latitude \nFROM\n  ship_ais AS sa\n  JOIN shp_data AS sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sd.object_type like '%anchorage%'\n  and sog > 3",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which vessels were in the Eastern Holding A area in the past 10 minutes? show vessel names",
+      "query": "SELECT DISTINCT\n  saq.NAME \nFROM\n  ship_ais_quarter saq\n  JOIN shp_data sd ON ST_Contains (sd.geom, saq.POINT) \nWHERE\n  sd.object_name = 'Eastern Holding A' \n  AND saq.last_updated >= DATE_SUB((select max(last_updated) from ship_ais), INTERVAL 10 MINUTE);",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Show me the ETAs and names of different ships arriving to PWBGA that are within 10 minutes of each other",
+      "query": "SELECT\n  a.mmsi,\n  a.NAME,\n  a.eta \nFROM\n  ship_ais a\n  JOIN ship_ais b ON a.mmsi <> b.mmsi \n  AND ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 10 \nWHERE\n  a.ptms_destination LIKE '%PWBGA%' \n  AND a.ptms_destination = b.ptms_destination \nORDER BY\n  a.eta;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "List the names of VLCC against the speed requirements",
+      "query": "SELECT DISTINCT\n  sa.mmsi,\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd ON (ST_Contains (sd.geom, sa.POINT) AND (sd.object_name = 'DEEPWATER ROUTE' OR sd.object_name = 'WESTBOUND SPECIFIC')) \nWHERE\n  sa.type = 'TANKER' \n  AND sa.length >= 300 \n  AND sa.sog > 12;",
+      "knowledge": "1. Definition 2: VLCC means the ship type is TANKER and the ship length is greater than or equal to 300 meters. VLCC field does not exist in the database, so the meaning of VLCC needs to be replaced with the above explanation.\n2. Navigation speed rules for VLCC and DDV: 1. If the vessel is in Strait of DEEPWATER ROUTE or WESTBOUND SPECIFIC area, its speed cannot exceed 12 knots. 2. If it is not in this area, there is no speed requirement. The question may involve the Strait of Malacca, which does not need to be taken into account in the conditions."
+    }
+  ],
+  "dev": [
+    {
+      "difficulty": "medium",
+      "question": "What is the current speed and location of vessel sounds like ALABAMA?",
+      "query": "SELECT\n  sog,\n  latitude,\n  longitude \nFROM\n  ship_ais \nWHERE\n  NAME LIKE '%ALABAMA%' \nORDER BY\n  last_updated DESC \n  LIMIT 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "easy",
+      "question": "List vessel name of tanker in the Strait.",
+      "query": "SELECT DISTINCT\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sd.object_type = 'strait' \n  AND sa.type = 'TANKER';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "easy",
+      "question": "show name and location of ship whose speed is lower than 0.5 order by name, only show 20 units.",
+      "query": "SELECT DISTINCT NAME\n  ,\n  latitude,\n  longitude \nFROM\n  ship_ais \nWHERE\n  sog < 0.5 \nORDER BY\nNAME \n  LIMIT 20;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "easy",
+      "question": "What is the current speed and location of vessel KPSB 5.",
+      "query": "SELECT\n  sog,\n  latitude,\n  longitude \nFROM\n  ship_ais \nWHERE\n  NAME = 'KPSB 5' \nORDER BY\n  last_updated DESC \n  LIMIT 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "easy",
+      "question": "Show me names of all the container in the Strait",
+      "query": "SELECT DISTINCT\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sa.type = 'CONTAINER SHIP' \n  AND sd.object_type = 'strait';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "easy",
+      "question": "Is there any vessel with draft greater than 15 meters. show the mmsi, name and draft of these ships.",
+      "query": "SELECT mmsi, name, draft FROM ship_ais WHERE draft > 15;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "List MMSI and name of VLCCs and deep-drought vessel (draft greater than 15 meters) in the Strait.",
+      "query": "SELECT DISTINCT\n  sa.mmsi,\n  sa.NAME,\n  sa.draft\nFROM\n  ship_ais sa\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sa.draft > 15 \n  AND sd.object_type = 'strait';",
+      "knowledge": "1. Definition 1: A vessel having a draught of 15 meters or more shall be deemed to be a deep draught vessel, also written as DDV."
+    },
+    {
+      "difficulty": "medium",
+      "question": "List MMSI and name of VLCCs in the Strait.",
+      "query": "SELECT distinct \n  sa.mmsi,\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sa.type = 'TANKER' \n  AND sa.length >= 300 \n  AND sd.object_type = 'strait' ",
+      "knowledge": "1. Definition 2: VLCC means the ship type is TANKER and the ship length is greater than or equal to 300 meters. VLCC field does not exist in the database, so the meaning of VLCC needs to be replaced with the above explanation."
+    },
+    {
+      "difficulty": "medium",
+      "question": "Show MMSI and name of VLCCs (tanker larger than 300m)",
+      "query": "SELECT DISTINCT mmsi, name FROM ship_ais WHERE type = 'TANKER' AND length >= 300;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "List MMSI and name of DDVs in the Strait.",
+      "query": "SELECT DISTINCT\n  sa.mmsi,\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sd.object_type = 'strait' \n  AND sa.draft >= 15 ",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "List mmsi and name of all the ships arriving to Singpaore Pilot Boarding Ground 'PEBGA'",
+      "query": "SELECT\n  mmsi,\nNAME \nFROM\n  ship_ais \nWHERE\n  ptms_destination LIKE '%PEBGA%' \nGROUP BY\n  mmsi,\nNAME \nORDER BY\n  MAX(last_updated) DESC;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "List all the names and mmsi of ship with location less than 1 km near pilot_boarding_ground",
+      "query": "SELECT DISTINCT\n  sa.mmsi,\n  sa.NAME,\n  sa.latitude,\n  sa.longitude\nFROM\n  ship_ais AS sa\n  JOIN shp_data AS sd ON sd.object_type = 'pilot_boarding_ground' \nWHERE\n  ST_Distance_Sphere (sa.POINT, sd.geom) <= 1000;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "list Top 5 biggest ships' mmsi, name and length in the Strait",
+      "query": "WITH ranked_ships AS (\n  SELECT\n    sa.mmsi,\n    sa.NAME,\n    sa.length,\n    ROW_NUMBER() OVER (PARTITION BY sa.mmsi ORDER BY sa.length DESC) AS rn \n  FROM\n    ship_ais sa\n    JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \n  WHERE\nsd.object_type = 'strait') SELECT\nmmsi,\nNAME,\nlength \nFROM\n  ranked_ships \nWHERE\n  rn = 1 \nORDER BY\n  length DESC \n  LIMIT 5;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "list Top 5 fastest ships' mmsi, name and speed in the Strait",
+      "query": "WITH ranked_ships AS (\n  SELECT\n    sa.mmsi,\n    sa.NAME,\n    sa.sog,\n    ROW_NUMBER() OVER (PARTITION BY sa.mmsi ORDER BY sa.sog DESC) AS rn \n  FROM\n    ship_ais sa\n    JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \n  WHERE\nsd.object_type = 'strait') SELECT\nmmsi,\nNAME,\nsog \nFROM\n  ranked_ships \nWHERE\n  rn = 1 \nORDER BY\n  sog DESC \n  LIMIT 5;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "Show mmsi and names of inbound container ship.",
+      "query": "SELECT\n  sa.mmsi,\n  sa.NAME \nFROM\n  ship_ais sa\n  LEFT JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) \n  AND sd.object_name = 'Singapore Port' \nWHERE\n  sa.type LIKE '%container%' \n  AND (\n    sa.ptms_destination LIKE '%PEBGA%' \n    OR sa.ptms_destination LIKE '%PEBGB%' \n    OR sa.ptms_destination LIKE '%PEBGC%' \n    OR sa.ptms_destination LIKE '%PWBGA%' \n    OR sa.ptms_destination LIKE '%PWBGB%' \n    OR sa.ptms_destination LIKE '%PJSB%' \n    OR sa.ptms_destination LIKE '%PSBG%' \n    OR sa.ptms_destination LIKE '%PBBG%' \n    OR sa.ptms_destination LIKE 'SG' \n    OR sa.ptms_destination LIKE 'Singapore' \n  OR sa.ptms_destination LIKE 'SIN') \n  AND sd.object_name IS NULL \nGROUP BY\n  mmsi,\nNAME \nORDER BY\n  MAX(last_updated) DESC;",
+      "knowledge": "1. The conditions for identifying ships entering or scheduling to Singapore Port: Condition 1, the ship’s ptms_destination includes any of PEBGA, PEBGB, PEBGC, PWBGA, PWBGB, PJSB, PSBG, PBBG, SG, Singapore, SIN; and Condition 2, the ship is not in Singapore Port."
+    },
+    {
+      "difficulty": "medium",
+      "question": "Show mmsi and names of bulk carrier that is schedule to enter Singapore port.",
+      "query": "SELECT\n  mmsi,\nNAME \nFROM\n  ship_ais \nWHERE\n  type like '%bulk carrier%' \n  AND (\n    ptms_destination LIKE '%PEBGA%' \n    OR ptms_destination LIKE '%PEBGB%' \n    OR ptms_destination LIKE '%PEBGC%' \n    OR ptms_destination LIKE '%PWBGA%' \n    OR ptms_destination LIKE '%PWBGB%' \n    OR ptms_destination LIKE '%PJSB%' \n    OR ptms_destination LIKE '%PSBG%' \n    OR ptms_destination LIKE '%PBBG%' \n    OR ptms_destination LIKE '%SG%' \n    OR ptms_destination LIKE '%Singapore%' \n  OR ptms_destination LIKE '%SIN%') \nGROUP BY\n  mmsi,\nNAME \nORDER BY\n  MAX(last_updated) DESC;",
+      "knowledge": "1. The conditions for identifying ships entering or scheduling to Singapore Port: Condition 1, the ship’s ptms_destination includes any of PEBGA, PEBGB, PEBGC, PWBGA, PWBGB, PJSB, PSBG, PBBG, SG, Singapore, SIN; and Condition 2, the ship is not in Singapore Port."
+    },
+    {
+      "difficulty": "medium",
+      "question": "Show mmsi and names of bulk carrier that is going to enter Singapore port.",
+      "query": "SELECT\n  mmsi,\nNAME \nFROM\n  ship_ais \nWHERE\n  type like '%bulk carrier%' \n  AND (\n    ptms_destination LIKE '%PEBGA%' \n    OR ptms_destination LIKE '%PEBGB%' \n    OR ptms_destination LIKE '%PEBGC%' \n    OR ptms_destination LIKE '%PWBGA%' \n    OR ptms_destination LIKE '%PWBGB%' \n    OR ptms_destination LIKE '%PJSB%' \n    OR ptms_destination LIKE '%PSBG%' \n    OR ptms_destination LIKE '%PBBG%' \n    OR ptms_destination LIKE '%SG%' \n    OR ptms_destination LIKE '%Singapore%' \n  OR ptms_destination LIKE '%SIN%') \nGROUP BY\n  mmsi,\nNAME \nORDER BY\n  MAX(last_updated) DESC;",
+      "knowledge": "1.. The conditions for identifying ships entering or scheduling to Singapore Port: Condition 1, the ship’s ptms_destination includes any of PEBGA, PEBGB, PEBGC, PWBGA, PWBGB, PJSB, PSBG, PBBG, SG, Singapore, SIN; and Condition 2, the ship is not in Singapore Port."
+    },
+    {
+      "difficulty": "extra_hard",
+      "question": "List all vessel pairs with the following details: name1, name2, eta1, eta2, and destination, where: the difference of their ETA (eta1 and eta2) are within 30 minutes and their destination are pilot station PEBGA",
+      "query": "SELECT\n  a.NAME AS name1,\n  b.NAME AS name2,\n  a.eta AS eta1,\n  b.eta AS eta2,\n  a.ptms_destination \nFROM\n  ship_ais a\n  JOIN ship_ais b ON a.mmsi < b.mmsi \nWHERE\n  ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 30 \n  AND a.ptms_destination = 'PEBGA' \n  AND b.ptms_destination = 'PEBGA';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "extra_hard",
+      "question": "Among the ships that are about to arrive at PWBGA, list the pairs of ships with exactly the same arrival time, and give mmsi1, mmsi2, name1, name2, eta, destination.",
+      "query": "SELECT\n  a.mmsi AS mmsi1,\n  b.mmsi AS mmsi2,\n  a.NAME AS name1,\n  b.NAME AS name2,\n  a.eta,\n  a.ptms_destination AS destination \nFROM\n  ship_ais a\n  JOIN ship_ais b ON a.eta = b.eta \n  AND a.mmsi < b.mmsi \nWHERE\n  a.ptms_destination = 'PWBGA' \n  AND b.ptms_destination = 'PWBGA';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "Which vessels lost communication with the shore base for over 5 minutes in the past 15-min, and what are their name and last known positions?",
+      "query": "WITH ranked_ships AS (\n  SELECT\n    name,\n    latitude,\n    longitude,\n    last_updated,\n    ROW_NUMBER() OVER (PARTITION BY name ORDER BY last_updated DESC) AS rn\n  FROM ship_ais_quarter\n  WHERE TIMESTAMPDIFF(MINUTE, last_updated, @CNOW) > 5\n    AND TIMESTAMPDIFF(MINUTE, last_updated, @CNOW) <= 15\n)\nSELECT name, latitude, longitude\nFROM ranked_ships\nWHERE rn = 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "medium",
+      "question": "list mmsi and names of all VLCC which speed is larger than 12 kn",
+      "query": "SELECT DISTINCT mmsi, name FROM ship_ais WHERE type = 'TANKER' AND length >= 300 AND sog > 12;",
+      "knowledge": "1. Definition 2: VLCC means the ship type is TANKER and the ship length is greater than or equal to 300 meters. VLCC field does not exist in the database, so the meaning of VLCC needs to be replaced with the above explanation."
+    },
+    {
+      "difficulty": "hard",
+      "question": "list mmsi and names of all the deep draught vessels which against the speed requirements",
+      "query": "SELECT DISTINCT sa.mmsi, sa.name FROM ship_ais sa JOIN shp_data sd ON ST_Intersects(sa.point, sd.geom) WHERE sa.draft >= 15 AND (sd.object_type = 'strait' AND (sd.object_name LIKE 'DEEPWATER ROUTE' OR sd.object_name LIKE 'WESTBOUND SPECIFIC')) AND sa.sog > 12;",
+      "knowledge": "1. Definition 1: A vessel having a draught of 15 meters or more shall be deemed to be a deep draught vessel, also written as DDV.\n2. Navigation speed rules for VLCC and DDV: 1. If the vessel is in Strait of DEEPWATER ROUTE or WESTBOUND SPECIFIC area, its speed cannot exceed 12 knots. 2. If it is not in this area, there is no speed requirement. The question may involve the Strait of Malacca, which does not need to be taken into account in the conditions."
+    },
+    {
+      "difficulty": "extra_hard",
+      "question": "List all vessel pairs with the following details: name1, name2, eta1, eta2, and destination, where: the estimated arrival times (eta1 and eta2) are within 30 minutes of each other and both vessels share the same destination, which is a pilot station.",
+      "query": "SELECT\n  a.mmsi AS mmsi1,\n  b.mmsi AS mmsi2,\n  a.NAME AS name1,\n  b.NAME AS name2,\n  a.eta AS eta1,\n  b.eta AS eta2,\n  a.ptms_destination \nFROM\n  ship_ais a\n  JOIN ship_ais b ON a.ptms_destination = b.ptms_destination \nWHERE\n  ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 30 \n  AND a.mmsi < b.mmsi \n  AND a.ptms_destination IN ('PEBGA', 'PEBGB', 'PEBGC', 'PWBGA', 'PWBGB', 'PJSB', 'PSBG', 'PBBG');",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "list mmsi and names of all the deep draught vessels which against the location requirements",
+      "query": "SELECT DISTINCT\n  sa.mmsi,\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd_monitor ON sd_monitor.object_name = 'DEEPWATER MONITOR'\n  JOIN shp_data sd_route ON sd_route.object_name = 'DEEPWATER ROUTE' \nWHERE\n  (sa.type = 'TANKER' AND sa.length >= 300 OR sa.draft >= 15) \n  AND ST_Contains (sd_monitor.geom, sa.POINT) \n  AND NOT ST_Contains (sd_route.geom, sa.POINT) ",
+      "knowledge": "1. Navigation location rules for VLCC and DDV: 1. If the vessel is in the DEEPWATER MONITOR area, it must sail in Strait of DEEPWATER ROUTE area. 2. If the vessel is not in Strait of DEEPWATER MONITOR area, it does not need to follow this rule. The question may involve the Strait of Malacca, which does not need to be taken into account in the conditions.\n2. Definition 2: VLCC means the ship type is TANKER and the ship length is greater than or equal to 300 meters. VLCC field does not exist in the database, so the meaning of VLCC needs to be replaced with the above explanation."
+    },
+    {
+      "difficulty": "hard",
+      "question": "list mmsi names and location of all the deep draught vessels which against the navigation rules",
+      "query": "WITH vlcc_ddv AS (\n  SELECT\n    mmsi,\n    NAME,\n    POINT,\n    longitude,\n    latitude,\n    sog \n  FROM\n    ship_ais \n  WHERE\n    (type = 'TANKER' AND length >= 300) \nOR draft >= 15),\nlocation_violation AS (\n  SELECT\n    v.mmsi,\n    v.NAME,\n    v.longitude,\n    v.latitude \n  FROM\n    vlcc_ddv v\n    JOIN shp_data s1 ON ST_Contains (s1.geom, v.POINT) \n    AND s1.object_name LIKE '%DEEPWATER MONITOR%'\n    LEFT JOIN shp_data s2 ON ST_Contains (s2.geom, v.POINT) \n    AND s2.object_name LIKE '%DEEPWATER ROUTE%' \n  WHERE\ns2.object_name IS NULL),\nspeed_violation AS (\n  SELECT DISTINCT\n    v.mmsi,\n    v.NAME,\n    v.longitude,\n    v.latitude \n  FROM\n    vlcc_ddv v\n    JOIN shp_data s ON ST_Contains (s.geom, v.POINT) \n    AND (s.object_name LIKE '%DEEPWATER ROUTE%' OR s.object_name LIKE '%WESTBOUND SPECIFIC%') \nAND v.sog > 12) SELECT DISTINCT\nmmsi,\nNAME,\nlongitude,\nlatitude \nFROM\n  location_violation UNION\nSELECT DISTINCT\n  mmsi,\n  NAME,\n  longitude,\n  latitude \nFROM\n  speed_violation;",
+      "knowledge": "1. Definition 1: A vessel having a draught of 15 meters or more shall be deemed to be a deep draught vessel, also written as DDV.\n2. Navigation speed rules for VLCC and DDV: 1. If the vessel is in Strait of DEEPWATER ROUTE or WESTBOUND SPECIFIC area, its speed cannot exceed 12 knots. 2. If it is not in this area, there is no speed requirement. The question may involve the Strait of Malacca, which does not need to be taken into account in the conditions.\n3. Definition 2: VLCC means the ship type is TANKER and the ship length is greater than or equal to 300 meters. VLCC field does not exist in the database, so the meaning of VLCC needs to be replaced with the above explanation.\n4. Navigation location rules for VLCC and DDV: 1. If the vessel is in the DEEPWATER MONITOR area, it must sail in Strait of DEEPWATER ROUTE area. 2. If the vessel is not in Strait of DEEPWATER MONITOR area, it does not need to follow this rule. The question may involve the Strait of Malacca, which does not need to be taken into account in the conditions."
+    },
+    {
+      "difficulty": "hard",
+      "question": "where is West Coast? show location",
+      "query": "SELECT name, latitude, longitude FROM ship_ais WHERE name = 'West Coast';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "where is Tanker No 4? show location",
+      "query": "SELECT latitude, longitude FROM ship_ais WHERE name = 'TANKER NO 4' ORDER BY last_updated DESC LIMIT 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "how many ship are going to AVLCC?",
+      "query": "SELECT COUNT(DISTINCT mmsi) FROM ship_ais WHERE ptms_destination = 'AVLCC';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "where is vessel named West Coast? show location",
+      "query": "SELECT latitude, longitude, sog FROM ship_ais WHERE name = 'WEST COAST' ORDER BY last_updated DESC LIMIT 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "where is Victoria? show location",
+      "query": "SELECT latitude, longitude FROM ship_ais WHERE name like '%VICTORIA%';",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Show me MMSI and name of ships arriving to the SG port in the past 10 minutes?",
+      "query": "SELECT mmsi, name FROM ship_ais WHERE ptms_destination IN ('PEBGA', 'PEBGB', 'PEBGC', 'PWBGA', 'PWBGB', 'PJSB', 'PSBG', 'PBBG', 'SG', 'Singapore', 'SIN') AND eta BETWEEN @CNOW AND DATE_ADD(@CNOW, INTERVAL 30 MINUTE) GROUP BY mmsi, name ORDER BY MAX(last_updated) DESC;",
+      "knowledge": "1. The conditions for identifying ships entering or scheduling to Singapore Port: Condition 1, the ship’s ptms_destination includes any of PEBGA, PEBGB, PEBGC, PWBGA, PWBGB, PJSB, PSBG, PBBG, SG, Singapore, SIN; and Condition 2, the ship is not in Singapore Port."
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which vessels were in the Zone A in the past 10 minutes? show mmsi and name",
+      "query": "SELECT DISTINCT\n  saq.mmsi,\n  saq.NAME \nFROM\n  ship_ais_quarter saq\n  JOIN shp_data sd ON sd.object_name = 'Zone A' \n  AND ST_Contains (sd.geom, saq.POINT) \nWHERE\n  saq.last_updated >= DATE_SUB((select max(last_updated) from ship_ais), INTERVAL 10 MINUTE);",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Show warning information in the Strait, and vessel information during the past 10 minutes, show the ship pair name and strait name?",
+      "query": "SELECT\n  sa1.NAME AS ship1_name,\n  sa2.NAME AS ship2_name,\n  sd.object_name\nFROM\n  warn_single ws\n  JOIN ship_ais sa1 ON ws.ship1 = sa1.mmsi\n  JOIN ship_ais sa2 ON ws.ship2 = sa2.mmsi\n  JOIN shp_data sd ON ST_Contains (sd.geom, sa1.POINT) \n  OR ST_Contains (sd.geom, sa2.POINT) \nWHERE\n  sd.object_type = 'strait' \n  AND TIMESTAMPDIFF(MINUTE, ws.dt, '2022-12-07 17:12:59') <= 10;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Could you show the latest one vessel pair name which has warn information.\n\n",
+      "query": "SELECT\n  sa1.NAME AS ship1_name,\n  sa2.NAME AS ship2_name \nFROM\n  warn_single ws\n  JOIN ship_ais sa1 ON ws.ship1 = sa1.mmsi\n  JOIN ship_ais sa2 ON ws.ship2 = sa2.mmsi \nWHERE\n  ws.dt = (SELECT MAX(dt) FROM warn_single) \n  LIMIT 1;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Gives name of departing ships (sog >3) at anchorage area.",
+      "query": "SELECT DISTINCT\n  sa.NAME,\n  sa.sog,\n  sa.longitude,\n  sa.latitude \nFROM\n  ship_ais AS sa\n  JOIN shp_data AS sd ON ST_Contains (sd.geom, sa.POINT) \nWHERE\n  sd.object_type like '%anchorage%'\n  and sog > 3",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Which vessels were in the Eastern Holding A area in the past 10 minutes? show vessel names",
+      "query": "SELECT DISTINCT\n  saq.NAME \nFROM\n  ship_ais_quarter saq\n  JOIN shp_data sd ON ST_Contains (sd.geom, saq.POINT) \nWHERE\n  sd.object_name = 'Eastern Holding A' \n  AND saq.last_updated >= DATE_SUB((select max(last_updated) from ship_ais), INTERVAL 10 MINUTE);",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "Show me the ETAs and names of different ships arriving to PWBGA that are within 10 minutes of each other",
+      "query": "SELECT\n  a.mmsi,\n  a.NAME,\n  a.eta \nFROM\n  ship_ais a\n  JOIN ship_ais b ON a.mmsi <> b.mmsi \n  AND ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 10 \nWHERE\n  a.ptms_destination LIKE '%PWBGA%' \n  AND a.ptms_destination = b.ptms_destination \nORDER BY\n  a.eta;",
+      "knowledge": ""
+    },
+    {
+      "difficulty": "hard",
+      "question": "List the names of VLCC against the speed requirements",
+      "query": "SELECT DISTINCT\n  sa.mmsi,\n  sa.NAME \nFROM\n  ship_ais sa\n  JOIN shp_data sd ON (ST_Contains (sd.geom, sa.POINT) AND (sd.object_name = 'DEEPWATER ROUTE' OR sd.object_name = 'WESTBOUND SPECIFIC')) \nWHERE\n  sa.type = 'TANKER' \n  AND sa.length >= 300 \n  AND sa.sog > 12;",
+      "knowledge": "1. Definition 2: VLCC means the ship type is TANKER and the ship length is greater than or equal to 300 meters. VLCC field does not exist in the database, so the meaning of VLCC needs to be replaced with the above explanation.\n2. Navigation speed rules for VLCC and DDV: 1. If the vessel is in Strait of DEEPWATER ROUTE or WESTBOUND SPECIFIC area, its speed cannot exceed 12 knots. 2. If it is not in this area, there is no speed requirement. The question may involve the Strait of Malacca, which does not need to be taken into account in the conditions."
+    }
+  ]
+}

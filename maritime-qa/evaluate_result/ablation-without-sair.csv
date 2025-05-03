@@ -1,0 +1,659 @@
+original_question,answer,llm_answer,llm_judge
+What is the current speed and location of vessel sounds like ALABAMA?,"SELECT
+  sog,
+  latitude,
+  longitude 
+FROM
+  ship_ais 
+WHERE
+  NAME LIKE '%ALABAMA%' 
+ORDER BY
+  last_updated DESC 
+  LIMIT 1;","
+SELECT sog, latitude, longitude 
+FROM ship_ais 
+WHERE name LIKE '%ALABAMA%'
+",1.0
+List vessel name of tanker in the Strait.,"SELECT DISTINCT
+  sa.NAME 
+FROM
+  ship_ais sa
+  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) 
+WHERE
+  sd.object_type = 'strait' 
+  AND sa.type = 'TANKER';","
+SELECT sa.name 
+FROM ship_ais sa
+JOIN shp_data sd ON ST_Intersects(sa.point, sd.geom)
+WHERE sa.type = 'tanker' AND sd.object_type = 'strait';
+",1.0
+"show name and location of ship whose speed is lower than 0.5 order by name, only show 20 units.","SELECT DISTINCT NAME
+  ,
+  latitude,
+  longitude 
+FROM
+  ship_ais 
+WHERE
+  sog < 0.5 
+ORDER BY
+NAME 
+  LIMIT 20;","
+SELECT name, latitude, longitude 
+FROM ship_ais 
+WHERE sog < 0.5 
+ORDER BY name ASC 
+LIMIT 20;
+",1.0
+What is the current speed and location of vessel KPSB 5.,"SELECT
+  sog,
+  latitude,
+  longitude 
+FROM
+  ship_ais 
+WHERE
+  NAME = 'KPSB 5' 
+ORDER BY
+  last_updated DESC 
+  LIMIT 1;","
+SELECT sog, latitude, longitude FROM ship_ais WHERE name = 'KPSB 5';
+",1.0
+Show me names of all the container in the Strait,"SELECT DISTINCT
+  sa.NAME 
+FROM
+  ship_ais sa
+  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) 
+WHERE
+  sa.type = 'CONTAINER SHIP' 
+  AND sd.object_type = 'strait';","
+SELECT sa.name 
+FROM ship_ais sa
+JOIN shp_data sd ON ST_Intersects(sa.point, sd.geom)
+WHERE sa.type = 'container' AND sd.object_type = 'strait';
+",0.0
+"Is there any vessel with draft greater than 15 meters. show the mmsi, name and draft of these ships.","SELECT mmsi, name, draft FROM ship_ais WHERE draft > 15;","
+SELECT mmsi, name, draft FROM ship_ais WHERE draft > 15;
+",1.0
+List MMSI and name of VLCCs and deep-drought vessel (draft greater than 15 meters) in the Strait.,"SELECT DISTINCT
+  sa.mmsi,
+  sa.NAME,
+  sa.draft
+FROM
+  ship_ais sa
+  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) 
+WHERE
+  sa.draft > 15 
+  AND sd.object_type = 'strait';","
+SELECT sa.mmsi, sa.name
+FROM ship_ais sa
+JOIN shp_data sd ON ST_Contains(sd.geom, sa.point)
+WHERE (sa.type = 'TANKER' AND sa.length >= 300) OR sa.draft > 15
+AND sd.object_type = 'strait';
+",0.25
+List MMSI and name of VLCCs in the Strait.,"SELECT distinct 
+  sa.mmsi,
+  sa.NAME 
+FROM
+  ship_ais sa
+  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) 
+WHERE
+  sa.type = 'TANKER' 
+  AND sa.length >= 300 
+  AND sd.object_type = 'strait' ","
+SELECT sa.mmsi, sa.name
+FROM ship_ais sa
+JOIN shp_data sd ON ST_Contains(sd.geom, sa.point)
+WHERE sa.type = 'TANKER' AND sa.length >= 300 AND sd.object_type = 'strait';
+",1.0
+Show MMSI and name of VLCCs (tanker larger than 300m),"SELECT DISTINCT mmsi, name FROM ship_ais WHERE type = 'TANKER' AND length >= 300;","
+SELECT mmsi, name 
+FROM ship_ais 
+WHERE type = 'TANKER' AND length >= 300;
+",1.0
+List MMSI and name of DDVs in the Strait.,"SELECT DISTINCT
+  sa.mmsi,
+  sa.NAME 
+FROM
+  ship_ais sa
+  JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) 
+WHERE
+  sd.object_type = 'strait' 
+  AND sa.draft >= 15 ","
+SELECT sa.mmsi, sa.name
+FROM ship_ais sa
+JOIN shp_data sd ON ST_Contains(sd.geom, sa.point)
+WHERE sd.object_type = 'strait' AND sa.type LIKE '%DDV%'
+",0.0
+List mmsi and name of all the ships arriving to Singpaore Pilot Boarding Ground 'PEBGA',"SELECT
+  mmsi,
+NAME 
+FROM
+  ship_ais 
+WHERE
+  ptms_destination LIKE '%PEBGA%' 
+GROUP BY
+  mmsi,
+NAME 
+ORDER BY
+  MAX(last_updated) DESC;","
+SELECT mmsi, name 
+FROM ship_ais 
+WHERE ptms_destination LIKE '%PEBGA%'
+",1.0
+List all the names and mmsi of ship with location less than 1 km near pilot_boarding_ground,"SELECT DISTINCT
+  sa.mmsi,
+  sa.NAME,
+  sa.latitude,
+  sa.longitude
+FROM
+  ship_ais AS sa
+  JOIN shp_data AS sd ON sd.object_type = 'pilot_boarding_ground' 
+WHERE
+  ST_Distance_Sphere (sa.POINT, sd.geom) <= 1000;","
+SELECT sa.name, sa.mmsi
+FROM ship_ais sa
+JOIN shp_data sd ON sd.object_type = 'pilot_boarding_ground'
+WHERE ST_Distance_Sphere(sa.point, sd.geom) < 1000;
+",1.0
+"list Top 5 biggest ships' mmsi, name and length in the Strait","WITH ranked_ships AS (
+  SELECT
+    sa.mmsi,
+    sa.NAME,
+    sa.length,
+    ROW_NUMBER() OVER (PARTITION BY sa.mmsi ORDER BY sa.length DESC) AS rn 
+  FROM
+    ship_ais sa
+    JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) 
+  WHERE
+sd.object_type = 'strait') SELECT
+mmsi,
+NAME,
+length 
+FROM
+  ranked_ships 
+WHERE
+  rn = 1 
+ORDER BY
+  length DESC 
+  LIMIT 5;","
+SELECT sa.mmsi, sa.name, sa.length
+FROM ship_ais sa
+JOIN shp_data sd ON ST_Contains(sd.geom, sa.point)
+WHERE sd.object_type = 'strait'
+ORDER BY sa.length DESC
+LIMIT 5;
+",0.8
+"list Top 5 fastest ships' mmsi, name and speed in the Strait","WITH ranked_ships AS (
+  SELECT
+    sa.mmsi,
+    sa.NAME,
+    sa.sog,
+    ROW_NUMBER() OVER (PARTITION BY sa.mmsi ORDER BY sa.sog DESC) AS rn 
+  FROM
+    ship_ais sa
+    JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) 
+  WHERE
+sd.object_type = 'strait') SELECT
+mmsi,
+NAME,
+sog 
+FROM
+  ranked_ships 
+WHERE
+  rn = 1 
+ORDER BY
+  sog DESC 
+  LIMIT 5;","
+SELECT sa.mmsi, sa.name, sa.sog
+FROM ship_ais sa
+JOIN shp_data sd ON ST_Contains(sd.geom, sa.point)
+WHERE sd.object_type = 'strait'
+ORDER BY sa.sog DESC
+LIMIT 5;
+",1.0
+Show mmsi and names of inbound container ship.,"SELECT
+  sa.mmsi,
+  sa.NAME 
+FROM
+  ship_ais sa
+  LEFT JOIN shp_data sd ON ST_Contains (sd.geom, sa.POINT) 
+  AND sd.object_name = 'Singapore Port' 
+WHERE
+  sa.type LIKE '%container%' 
+  AND (
+    sa.ptms_destination LIKE '%PEBGA%' 
+    OR sa.ptms_destination LIKE '%PEBGB%' 
+    OR sa.ptms_destination LIKE '%PEBGC%' 
+    OR sa.ptms_destination LIKE '%PWBGA%' 
+    OR sa.ptms_destination LIKE '%PWBGB%' 
+    OR sa.ptms_destination LIKE '%PJSB%' 
+    OR sa.ptms_destination LIKE '%PSBG%' 
+    OR sa.ptms_destination LIKE '%PBBG%' 
+    OR sa.ptms_destination LIKE 'SG' 
+    OR sa.ptms_destination LIKE 'Singapore' 
+  OR sa.ptms_destination LIKE 'SIN') 
+  AND sd.object_name IS NULL 
+GROUP BY
+  mmsi,
+NAME 
+ORDER BY
+  MAX(last_updated) DESC;","
+SELECT mmsi, name 
+FROM ship_ais 
+WHERE type = 'CONTAINER SHIP' AND ptms_destination LIKE 'INBOUND%';
+",0.0
+Show mmsi and names of bulk carrier that is schedule to enter Singapore port.,"SELECT
+  mmsi,
+NAME 
+FROM
+  ship_ais 
+WHERE
+  type like '%bulk carrier%' 
+  AND (
+    ptms_destination LIKE '%PEBGA%' 
+    OR ptms_destination LIKE '%PEBGB%' 
+    OR ptms_destination LIKE '%PEBGC%' 
+    OR ptms_destination LIKE '%PWBGA%' 
+    OR ptms_destination LIKE '%PWBGB%' 
+    OR ptms_destination LIKE '%PJSB%' 
+    OR ptms_destination LIKE '%PSBG%' 
+    OR ptms_destination LIKE '%PBBG%' 
+    OR ptms_destination LIKE '%SG%' 
+    OR ptms_destination LIKE '%Singapore%' 
+  OR ptms_destination LIKE '%SIN%') 
+GROUP BY
+  mmsi,
+NAME 
+ORDER BY
+  MAX(last_updated) DESC;","
+SELECT mmsi, name 
+FROM ship_ais 
+WHERE type = 'BULK CARRIER' 
+AND ptms_destination LIKE '%PEBGA%' OR ptms_destination LIKE '%PEBGB%' OR ptms_destination LIKE '%PEBGC%' 
+OR ptms_destination LIKE '%PWBGA%' OR ptms_destination LIKE '%PWBGB%' OR ptms_destination LIKE '%PJSB%' 
+OR ptms_destination LIKE '%PSBG%' OR ptms_destination LIKE '%PBBG%' OR ptms_destination LIKE 'SG' 
+OR ptms_destination LIKE 'Singapore' OR ptms_destination LIKE 'SIN';
+",0.2
+Show mmsi and names of bulk carrier that is going to enter Singapore port.,"SELECT
+  mmsi,
+NAME 
+FROM
+  ship_ais 
+WHERE
+  type like '%bulk carrier%' 
+  AND (
+    ptms_destination LIKE '%PEBGA%' 
+    OR ptms_destination LIKE '%PEBGB%' 
+    OR ptms_destination LIKE '%PEBGC%' 
+    OR ptms_destination LIKE '%PWBGA%' 
+    OR ptms_destination LIKE '%PWBGB%' 
+    OR ptms_destination LIKE '%PJSB%' 
+    OR ptms_destination LIKE '%PSBG%' 
+    OR ptms_destination LIKE '%PBBG%' 
+    OR ptms_destination LIKE '%SG%' 
+    OR ptms_destination LIKE '%Singapore%' 
+  OR ptms_destination LIKE '%SIN%') 
+GROUP BY
+  mmsi,
+NAME 
+ORDER BY
+  MAX(last_updated) DESC;","
+SELECT mmsi, name 
+FROM ship_ais 
+WHERE type = 'bulk carrier' 
+AND ptms_destination LIKE '%PEBGA%' 
+OR ptms_destination LIKE '%PEBGB%' 
+OR ptms_destination LIKE '%PEBGC%' 
+OR ptms_destination LIKE '%PWBGA%' 
+OR ptms_destination LIKE '%PWBGB%' 
+OR ptms_destination LIKE '%PJSB%' 
+OR ptms_destination LIKE '%PSBG%' 
+OR ptms_destination LIKE '%PBBG%' 
+OR ptms_destination LIKE '%SG%' 
+OR ptms_destination LIKE '%Singapore%'
+OR ptms_destination LIKE '%SIN%';
+",0.1935483870967742
+"List all vessel pairs with the following details: name1, name2, eta1, eta2, and destination, where: the difference of their ETA (eta1 and eta2) are within 30 minutes and their destination are pilot station PEBGA","SELECT
+  a.NAME AS name1,
+  b.NAME AS name2,
+  a.eta AS eta1,
+  b.eta AS eta2,
+  a.ptms_destination 
+FROM
+  ship_ais a
+  JOIN ship_ais b ON a.mmsi < b.mmsi 
+WHERE
+  ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 30 
+  AND a.ptms_destination = 'PEBGA' 
+  AND b.ptms_destination = 'PEBGA';","
+SELECT a.name AS name1, b.name AS name2, a.eta AS eta1, b.eta AS eta2, a.ptms_destination
+FROM ship_ais a
+JOIN ship_ais b ON a.mmsi < b.mmsi
+WHERE ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 30
+AND a.ptms_destination = 'PEBGA'
+AND b.ptms_destination = 'PEBGA';
+",1.0
+"Among the ships that are about to arrive at PWBGA, list the pairs of ships with exactly the same arrival time, and give mmsi1, mmsi2, name1, name2, eta, destination.","SELECT
+  a.mmsi AS mmsi1,
+  b.mmsi AS mmsi2,
+  a.NAME AS name1,
+  b.NAME AS name2,
+  a.eta,
+  a.ptms_destination AS destination 
+FROM
+  ship_ais a
+  JOIN ship_ais b ON a.eta = b.eta 
+  AND a.mmsi < b.mmsi 
+WHERE
+  a.ptms_destination = 'PWBGA' 
+  AND b.ptms_destination = 'PWBGA';","
+SELECT 
+    a.mmsi AS mmsi1, 
+    b.mmsi AS mmsi2, 
+    a.name AS name1, 
+    b.name AS name2, 
+    a.eta, 
+    a.ptms_destination AS destination
+FROM 
+    ship_ais a
+JOIN 
+    ship_ais b ON a.eta = b.eta AND a.mmsi < b.mmsi
+WHERE 
+    a.ptms_destination = 'PWBGA' AND b.ptms_destination = 'PWBGA';
+",1.0
+"Which vessels lost communication with the shore base for over 5 minutes in the past 15-min, and what are their name and last known positions?","WITH ranked_ships AS (
+  SELECT
+    name,
+    latitude,
+    longitude,
+    last_updated,
+    ROW_NUMBER() OVER (PARTITION BY name ORDER BY last_updated DESC) AS rn
+  FROM ship_ais_quarter
+  WHERE TIMESTAMPDIFF(MINUTE, last_updated, @CNOW) > 5
+    AND TIMESTAMPDIFF(MINUTE, last_updated, @CNOW) <= 15
+)
+SELECT name, latitude, longitude
+FROM ranked_ships
+WHERE rn = 1;","
+SELECT mmsi, name, latitude, longitude 
+FROM ship_ais_quarter 
+WHERE TIMESTAMPDIFF(MINUTE, last_updated, (SELECT max(temp.last_updated) FROM ship_ais as temp)) > 5;
+",0.9427226363279717
+list mmsi and names of all VLCC which speed is larger than 12 kn,"SELECT DISTINCT mmsi, name FROM ship_ais WHERE type = 'TANKER' AND length >= 300 AND sog > 12;","
+SELECT mmsi, name 
+FROM ship_ais 
+WHERE type = 'TANKER' AND length >= 300 AND sog > 12;
+",1.0
+list mmsi and names of all the deep draught vessels which against the speed requirements,"SELECT DISTINCT sa.mmsi, sa.name FROM ship_ais sa JOIN shp_data sd ON ST_Intersects(sa.point, sd.geom) WHERE sa.draft >= 15 AND (sd.object_type = 'strait' AND (sd.object_name LIKE 'DEEPWATER ROUTE' OR sd.object_name LIKE 'WESTBOUND SPECIFIC')) AND sa.sog > 12;","
+SELECT sa.mmsi, sa.name
+FROM ship_ais sa
+JOIN shp_data sd ON (sd.object_name LIKE '%DEEPWATER ROUTE%' OR sd.object_name LIKE '%WESTBOUND SPECIFIC%')
+WHERE ST_Contains(sd.geom, sa.point)
+AND sa.draft >= 15
+AND sa.sog > 12;
+",1.0
+"List all vessel pairs with the following details: name1, name2, eta1, eta2, and destination, where: the estimated arrival times (eta1 and eta2) are within 30 minutes of each other and both vessels share the same destination, which is a pilot station.","SELECT
+  a.mmsi AS mmsi1,
+  b.mmsi AS mmsi2,
+  a.NAME AS name1,
+  b.NAME AS name2,
+  a.eta AS eta1,
+  b.eta AS eta2,
+  a.ptms_destination 
+FROM
+  ship_ais a
+  JOIN ship_ais b ON a.ptms_destination = b.ptms_destination 
+WHERE
+  ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 30 
+  AND a.mmsi < b.mmsi 
+  AND a.ptms_destination IN ('PEBGA', 'PEBGB', 'PEBGC', 'PWBGA', 'PWBGB', 'PJSB', 'PSBG', 'PBBG');","
+SELECT a.name AS name1, b.name AS name2, a.eta AS eta1, b.eta AS eta2, a.ptms_destination
+FROM ship_ais a
+JOIN ship_ais b ON a.ptms_destination = b.ptms_destination 
+AND ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 30
+WHERE a.mmsi < b.mmsi 
+AND a.ptms_destination IN ('PEBGA', 'PEBGB', 'PEBGC', 'PWBGA', 'PWBGB', 'PJSB', 'PSBG', 'PBBG');
+",1.0
+list mmsi and names of all the deep draught vessels which against the location requirements,"SELECT DISTINCT
+  sa.mmsi,
+  sa.NAME 
+FROM
+  ship_ais sa
+  JOIN shp_data sd_monitor ON sd_monitor.object_name = 'DEEPWATER MONITOR'
+  JOIN shp_data sd_route ON sd_route.object_name = 'DEEPWATER ROUTE' 
+WHERE
+  (sa.type = 'TANKER' AND sa.length >= 300 OR sa.draft >= 15) 
+  AND ST_Contains (sd_monitor.geom, sa.POINT) 
+  AND NOT ST_Contains (sd_route.geom, sa.POINT) ","
+SELECT sa.mmsi, sa.name
+FROM ship_ais sa
+WHERE sa.draft >= 15 
+AND NOT EXISTS (
+    SELECT 1 
+    FROM shp_data sd
+    WHERE (sd.object_type LIKE '%fairway%' OR sd.object_type LIKE '%strait%')
+    AND ST_Contains(sd.geom, sa.point)
+);
+",0.0
+list mmsi names and location of all the deep draught vessels which against the navigation rules,"WITH vlcc_ddv AS (
+  SELECT
+    mmsi,
+    NAME,
+    POINT,
+    longitude,
+    latitude,
+    sog 
+  FROM
+    ship_ais 
+  WHERE
+    (type = 'TANKER' AND length >= 300) 
+OR draft >= 15),
+location_violation AS (
+  SELECT
+    v.mmsi,
+    v.NAME,
+    v.longitude,
+    v.latitude 
+  FROM
+    vlcc_ddv v
+    JOIN shp_data s1 ON ST_Contains (s1.geom, v.POINT) 
+    AND s1.object_name LIKE '%DEEPWATER MONITOR%'
+    LEFT JOIN shp_data s2 ON ST_Contains (s2.geom, v.POINT) 
+    AND s2.object_name LIKE '%DEEPWATER ROUTE%' 
+  WHERE
+s2.object_name IS NULL),
+speed_violation AS (
+  SELECT DISTINCT
+    v.mmsi,
+    v.NAME,
+    v.longitude,
+    v.latitude 
+  FROM
+    vlcc_ddv v
+    JOIN shp_data s ON ST_Contains (s.geom, v.POINT) 
+    AND (s.object_name LIKE '%DEEPWATER ROUTE%' OR s.object_name LIKE '%WESTBOUND SPECIFIC%') 
+AND v.sog > 12) SELECT DISTINCT
+mmsi,
+NAME,
+longitude,
+latitude 
+FROM
+  location_violation UNION
+SELECT DISTINCT
+  mmsi,
+  NAME,
+  longitude,
+  latitude 
+FROM
+  speed_violation;","
+SELECT sa.mmsi, sa.name, sa.latitude, sa.longitude
+FROM ship_ais sa
+JOIN shp_data sd_monitor ON ST_Contains(sd_monitor.geom, sa.point)
+LEFT JOIN shp_data sd_route ON ST_Contains(sd_route.geom, sa.point)
+WHERE sa.draft >= 15 
+AND sd_monitor.object_name LIKE '%DEEPWATER MONITOR%'
+AND (sd_route.object_name NOT LIKE '%DEEPWATER ROUTE%' OR sd_route.object_name IS NULL);
+",0.5
+where is West Coast? show location,"SELECT name, latitude, longitude FROM ship_ais WHERE name = 'West Coast';","
+SELECT latitude, longitude FROM ship_ais WHERE name = 'WEST COAST';
+",1.0
+where is Tanker No 4? show location,"SELECT latitude, longitude FROM ship_ais WHERE name = 'TANKER NO 4' ORDER BY last_updated DESC LIMIT 1;","
+SELECT latitude, longitude FROM ship_ais WHERE name = 'TANKER NO 4';
+",1.0
+how many ship are going to AVLCC?,SELECT COUNT(DISTINCT mmsi) FROM ship_ais WHERE ptms_destination = 'AVLCC';,"
+SELECT COUNT(DISTINCT mmsi) 
+FROM ship_ais 
+WHERE ptms_destination = 'AVLCC';
+",1.0
+where is vessel named West Coast? show location,"SELECT latitude, longitude, sog FROM ship_ais WHERE name = 'WEST COAST' ORDER BY last_updated DESC LIMIT 1;","
+SELECT latitude, longitude FROM ship_ais WHERE name = 'WEST COAST';
+",1.0
+where is Victoria? show location,"SELECT latitude, longitude FROM ship_ais WHERE name like '%VICTORIA%';","
+SELECT latitude, longitude FROM ship_ais WHERE name LIKE '%VICTORIA%'
+",1.0
+Show me MMSI and name of ships arriving to the SG port in the past 10 minutes?,"SELECT mmsi, name FROM ship_ais WHERE ptms_destination IN ('PEBGA', 'PEBGB', 'PEBGC', 'PWBGA', 'PWBGB', 'PJSB', 'PSBG', 'PBBG', 'SG', 'Singapore', 'SIN') AND eta BETWEEN @CNOW AND DATE_ADD(@CNOW, INTERVAL 30 MINUTE) GROUP BY mmsi, name ORDER BY MAX(last_updated) DESC;","
+SELECT mmsi, name 
+FROM ship_ais_quarter 
+WHERE ptms_destination LIKE '%PEBGA%' 
+   OR ptms_destination LIKE '%PEBGB%' 
+   OR ptms_destination LIKE '%PEBGC%' 
+   OR ptms_destination LIKE '%PWBGA%' 
+   OR ptms_destination LIKE '%PWBGB%' 
+   OR ptms_destination LIKE '%PJSB%' 
+   OR ptms_destination LIKE '%PSBG%' 
+   OR ptms_destination LIKE '%PBBG%' 
+   OR ptms_destination LIKE '%SG%' 
+   OR ptms_destination LIKE '%Singapore%'
+   OR ptms_destination LIKE '%SIN%'
+AND last_updated >= (SELECT max(temp.last_updated) FROM ship_ais as temp) - INTERVAL 10 MINUTE;
+",0.021739130434782608
+Which vessels were in the Zone A in the past 10 minutes? show mmsi and name,"SELECT DISTINCT
+  saq.mmsi,
+  saq.NAME 
+FROM
+  ship_ais_quarter saq
+  JOIN shp_data sd ON sd.object_name = 'Zone A' 
+  AND ST_Contains (sd.geom, saq.POINT) 
+WHERE
+  saq.last_updated >= DATE_SUB((select max(last_updated) from ship_ais), INTERVAL 10 MINUTE);","
+SELECT saq.mmsi, saq.name
+FROM ship_ais_quarter saq
+JOIN shp_data sd ON ST_Contains(sd.geom, saq.point)
+WHERE sd.object_name = 'Zone A'
+AND saq.last_updated >= (SELECT max(temp.last_updated) FROM ship_ais as temp) - INTERVAL 10 MINUTE;
+",1.0
+"Show warning information in the Strait, and vessel information during the past 10 minutes, show the ship pair name and strait name?","SELECT
+  sa1.NAME AS ship1_name,
+  sa2.NAME AS ship2_name,
+  sd.object_name
+FROM
+  warn_single ws
+  JOIN ship_ais sa1 ON ws.ship1 = sa1.mmsi
+  JOIN ship_ais sa2 ON ws.ship2 = sa2.mmsi
+  JOIN shp_data sd ON ST_Contains (sd.geom, sa1.POINT) 
+  OR ST_Contains (sd.geom, sa2.POINT) 
+WHERE
+  sd.object_type = 'strait' 
+  AND TIMESTAMPDIFF(MINUTE, ws.dt, '2022-12-07 17:12:59') <= 10;","
+SELECT 
+    ws.ship1, 
+    ws.ship2, 
+    saq1.name AS ship1_name, 
+    saq2.name AS ship2_name, 
+    sd.object_name AS strait_name
+FROM 
+    warn_single ws
+JOIN 
+    shp_data sd ON sd.object_type = 'strait'
+JOIN 
+    ship_ais_quarter saq1 ON ws.ship1 = saq1.mmsi AND saq1.last_updated >= (SELECT max(temp.last_updated) FROM ship_ais as temp) - INTERVAL 10 MINUTE
+JOIN 
+    ship_ais_quarter saq2 ON ws.ship2 = saq2.mmsi AND saq2.last_updated >= (SELECT max(temp.last_updated) FROM ship_ais as temp) - INTERVAL 10 MINUTE;
+",0.23529411764705882
+"Could you show the latest one vessel pair name which has warn information.
+
+","SELECT
+  sa1.NAME AS ship1_name,
+  sa2.NAME AS ship2_name 
+FROM
+  warn_single ws
+  JOIN ship_ais sa1 ON ws.ship1 = sa1.mmsi
+  JOIN ship_ais sa2 ON ws.ship2 = sa2.mmsi 
+WHERE
+  ws.dt = (SELECT MAX(dt) FROM warn_single) 
+  LIMIT 1;","
+SELECT sa1.name AS ship1_name, sa2.name AS ship2_name
+FROM warn_single ws
+JOIN ship_ais sa1 ON ws.ship1 = sa1.mmsi
+JOIN ship_ais sa2 ON ws.ship2 = sa2.mmsi
+WHERE ws.dt = (SELECT MAX(dt) FROM warn_single)
+LIMIT 1;
+",1.0
+Gives name of departing ships (sog >3) at anchorage area.,"SELECT DISTINCT
+  sa.NAME,
+  sa.sog,
+  sa.longitude,
+  sa.latitude 
+FROM
+  ship_ais AS sa
+  JOIN shp_data AS sd ON ST_Contains (sd.geom, sa.POINT) 
+WHERE
+  sd.object_type like '%anchorage%'
+  and sog > 3","
+SELECT sa.name, sa.sog, sa.longitude, sa.latitude 
+FROM ship_ais AS sa
+JOIN shp_data AS sd ON ST_Contains(sd.geom, sa.point)
+WHERE sd.object_name LIKE '%Anchorage Area%' AND sa.sog > 3;
+",0.0
+Which vessels were in the Eastern Holding A area in the past 10 minutes? show vessel names,"SELECT DISTINCT
+  saq.NAME 
+FROM
+  ship_ais_quarter saq
+  JOIN shp_data sd ON ST_Contains (sd.geom, saq.POINT) 
+WHERE
+  sd.object_name = 'Eastern Holding A' 
+  AND saq.last_updated >= DATE_SUB((select max(last_updated) from ship_ais), INTERVAL 10 MINUTE);","
+SELECT saq.name 
+FROM ship_ais_quarter saq
+JOIN shp_data sd ON ST_Contains(sd.geom, saq.point)
+WHERE sd.object_name LIKE 'Eastern Holding A'
+AND saq.last_updated >= DATE_SUB((SELECT max(temp.last_updated) FROM ship_ais as temp), INTERVAL 10 MINUTE);
+",1.0
+Show me the ETAs and names of different ships arriving to PWBGA that are within 10 minutes of each other,"SELECT
+  a.mmsi,
+  a.NAME,
+  a.eta 
+FROM
+  ship_ais a
+  JOIN ship_ais b ON a.mmsi <> b.mmsi 
+  AND ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 10 
+WHERE
+  a.ptms_destination LIKE '%PWBGA%' 
+  AND a.ptms_destination = b.ptms_destination 
+ORDER BY
+  a.eta;","
+SELECT a.eta, a.name
+FROM ship_ais a
+JOIN ship_ais b ON a.mmsi <> b.mmsi 
+WHERE a.ptms_destination = 'PWBGA' 
+  AND b.ptms_destination = 'PWBGA'
+  AND ABS(TIMESTAMPDIFF(MINUTE, a.eta, b.eta)) <= 10;
+",1.0
+List the names of VLCC against the speed requirements,"SELECT DISTINCT
+  sa.mmsi,
+  sa.NAME 
+FROM
+  ship_ais sa
+  JOIN shp_data sd ON (ST_Contains (sd.geom, sa.POINT) AND (sd.object_name = 'DEEPWATER ROUTE' OR sd.object_name = 'WESTBOUND SPECIFIC')) 
+WHERE
+  sa.type = 'TANKER' 
+  AND sa.length >= 300 
+  AND sa.sog > 12;","
+SELECT sa.name
+FROM ship_ais sa
+JOIN shp_data sd ON ST_Contains(sd.geom, sa.point)
+WHERE sa.type = 'TANKER'
+  AND sa.length >= 300
+  AND sd.object_type = 'strait'
+  AND (sd.object_name LIKE '%DEEPWATER ROUTE%' OR sd.object_name LIKE '%WESTBOUND SPECIFIC%')
+  AND sa.sog > 12;
+",1.0

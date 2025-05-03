@@ -1,0 +1,27 @@
+mysql:
+  host: "localhost"  # MySQL server address
+  user: "root"  # MySQL username
+  password: "123456"  # MySQL password
+  database: "ship"  # Database name
+  port: 3306  # MySQL port
+api:
+  api_key: xxx
+  address: localhost:1080
+  rag:
+    agent_id: xxx
+  maritime:
+    agent_id: xxx
+  sql_debugger:
+    agent_id: xxx
+  question_rethink:
+    agent_id: xxx
+  keyword_knowledge:
+    agent_id: xxx
+flask:
+  host: localhost
+  port: 5001
+  debug: True
+
+llm-api:
+  openai: xxx
+  deepseek: xxx
