@@ -3,12 +3,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-2.0+-green.svg)](https://flask.palletsprojects.com/)
+[![arXiv](https://img.shields.io/badge/arXiv-2505.00989-b31b1b.svg)](https://arxiv.org/abs/2505.00989)
 
 ITSC2025 Submitted Paper #549 Official Demo Presentation
 
 > An intelligent vessel traffic management system based on large language models, supporting natural language queries, collision analysis, traffic flow analysis, and more.
 
-Cite us on arxiv
+Cite us!!!
 ```bib
 @article{sun2025vts,
   title={VTS-LLM: Domain-Adaptive LLM Agent for Enhancing Awareness in Vessel Traffic Services through Natural Language},
