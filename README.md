@@ -42,8 +42,6 @@ note that: add API_KEY into [api.yaml](./maritime-qa/api.yaml). `OpenAI`, `Ollam
 
 view [RAGFlow](https://github.com/infiniflow/ragflow) for installing instruction.
 
-
-
 ## Data
 1. shp file data
 
