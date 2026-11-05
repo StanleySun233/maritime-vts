@@ -100,7 +100,7 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(len(result["rows"]), 100)
 
     def test_reject_non_readonly_sql(self):
-        for sql in ("DELETE FROM ship_ais", "SELECT * FROM ship_ais; DELETE FROM ship_ais", "SELECT * FROM ship_ais FOR UPDATE", "SELECT SLEEP(10)", "SELECT @a := 1"):
+        for sql in ("DELETE FROM ship_ais", "SELECT * FROM ship_ais; DELETE FROM ship_ais", "SELECT * FROM ship_ais FOR UPDATE", "SELECT SLEEP(10)", "SELECT @a := 1", "SELECT @CNOW"):
             with self.subTest(sql=sql), self.assertRaises(ValueError):
                 react_tools.validated_sql(sql)
 

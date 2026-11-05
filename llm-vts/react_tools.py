@@ -27,6 +27,8 @@ def validated_sql(sql, max_rows=None):
     tree = statements[0]
     if any(tree.find(kind) for kind in (exp.Into, exp.Lock, exp.Command, exp.Insert, exp.Update, exp.Delete, exp.PropertyEQ)):
         raise ValueError("Only read-only SELECT queries are allowed")
+    if tree.find(exp.Parameter):
+        raise ValueError("MySQL session variables are not allowed; use explicit values or subqueries")
     forbidden = {"GET_LOCK", "RELEASE_LOCK", "SLEEP", "BENCHMARK", "LOAD_FILE", "IS_FREE_LOCK", "IS_USED_LOCK"}
     for node in tree.walk():
         if isinstance(node, exp.Func) and node.sql_name().upper() in forbidden:

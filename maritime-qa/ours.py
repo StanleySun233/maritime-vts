@@ -16,10 +16,13 @@ QUERY_TOOLS = {"query_database", "traffic_flow", "collision_analysis"}
 
 
 def reference_sql(sql):
-    tree = sqlglot.parse_one(validated_sql(sql), read="mysql")
+    statements = sqlglot.parse(sql, read="mysql")
+    if len(statements) != 1 or statements[0] is None:
+        raise ValueError("Only one SELECT query is allowed")
+    tree = statements[0]
     current_time = sqlglot.parse_one("(SELECT MAX(last_updated) FROM ship_ais)", read="mysql")
     tree = tree.transform(lambda node: current_time.copy() if isinstance(node, sqlglot.exp.Parameter) and node.name.upper() == "CNOW" else node)
-    return tree.sql(dialect="mysql")
+    return validated_sql(tree.sql(dialect="mysql"))
 
 
 def evaluate_item(item):

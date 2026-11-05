@@ -8,7 +8,7 @@ Run a question:
 
 python llm-vts/main.py "Which vessels are in the strait?"
 
-The JSON output contains the answer and the tool call trace. The model can inspect the schema, find entities, search knowledge, validate SQL and perform vessel, traffic flow and collision queries. Each SQL statement is checked with EXPLAIN before execution. Queries return at most 100 rows and indicate truncation. Query results include the SQL executed with a row limit.
+The JSON output contains the answer and the tool call trace. The model can inspect the schema, find entities, search knowledge, validate SQL and perform vessel, traffic flow and collision queries. Each SQL statement is checked with EXPLAIN before execution. Queries return at most 100 rows and indicate truncation. Query results include the SQL executed with a row limit. MySQL session variables are rejected; use explicit values or subqueries.
 
 The knowledge collection starts empty. Import text, Markdown or text-based PDF documents:
 

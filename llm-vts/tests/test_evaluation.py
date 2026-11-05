@@ -12,10 +12,12 @@ from react_tools import validated_sql
 
 class EvaluationTests(unittest.TestCase):
     def test_dataset_time_reference_is_resolved_without_changing_literals(self):
-        sql = evaluation.reference_sql("SELECT @CNOW, '@CNOW', @OTHER")
-        self.assertEqual(sql, "SELECT (SELECT MAX(last_updated) FROM ship_ais), '@CNOW', @OTHER")
+        sql = evaluation.reference_sql("SELECT @CNOW, '@CNOW'")
+        self.assertEqual(sql, "SELECT (SELECT MAX(last_updated) FROM ship_ais), '@CNOW'")
         with self.assertRaises(ValueError):
             evaluation.reference_sql("SELECT @CNOW; DELETE FROM ship_ais")
+        with self.assertRaises(ValueError):
+            evaluation.reference_sql("SELECT @OTHER")
 
     def test_dataset_reference_queries_pass_read_only_validation(self):
         dataset = json.loads((Path(__file__).resolve().parents[2] / "maritime-qa" / "data" / "test_dataset.json").read_text(encoding="utf-8"))
