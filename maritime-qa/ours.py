@@ -9,10 +9,17 @@ import sqlglot
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "llm-vts"))
 from agent import run_agent
-from react_tools import run_query
+from react_tools import run_query, validated_sql
 
 
 QUERY_TOOLS = {"query_database", "traffic_flow", "collision_analysis"}
+
+
+def reference_sql(sql):
+    tree = sqlglot.parse_one(validated_sql(sql), read="mysql")
+    current_time = sqlglot.parse_one("(SELECT MAX(last_updated) FROM ship_ais)", read="mysql")
+    tree = tree.transform(lambda node: current_time.copy() if isinstance(node, sqlglot.exp.Parameter) and node.name.upper() == "CNOW" else node)
+    return tree.sql(dialect="mysql")
 
 
 def evaluate_item(item):
@@ -39,7 +46,7 @@ def evaluate_item(item):
         result["reason"] = "Query result was truncated"
         return result
     try:
-        expected = json.loads(run_query(item["query"]))
+        expected = json.loads(run_query(reference_sql(item["query"])))
     except (ValueError, pymysql.MySQLError, sqlglot.errors.SqlglotError, OSError) as exc:
         result["reason"] = "Reference query failed: " + str(exc)
         return result

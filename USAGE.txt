@@ -20,7 +20,9 @@ Run the VTS-SQL evaluation after configuring the model and database:
 
 python maritime-qa/ours.py --split dev --output ours.csv
 
-The evaluation compares all returned column values and row multiplicities. Empty results, truncated results and query failures are inconclusive. The reference queries use the same read-only database tool and row limit.
+The evaluation compares all returned column values and row multiplicities. Empty results, truncated results and query failures are inconclusive. The reference queries use the same read-only database tool and row limit. The dataset's @CNOW reference resolves to the latest ship_ais timestamp. Use a fixed database snapshot for reproducible comparisons.
+
+The bundled test_dataset.json contains 38 examples in each of train and dev; all 38 examples are identical across the two splits. Results on dev do not measure generalization to unseen examples.
 
 Run the isolated tests:
 
