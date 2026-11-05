@@ -20,7 +20,7 @@ def connection():
     )
 
 
-def validated_sql(sql):
+def validated_sql(sql, max_rows=None):
     statements = sqlglot.parse(sql, read="mysql")
     if len(statements) != 1 or not isinstance(statements[0], (exp.Select, exp.Union)):
         raise ValueError("Only one SELECT query is allowed")
@@ -33,11 +33,21 @@ def validated_sql(sql):
             raise ValueError("Function is not allowed")
         if isinstance(node, exp.Anonymous) and node.name.upper() in forbidden:
             raise ValueError("Function is not allowed")
+    if max_rows is not None:
+        limit = tree.args.get("limit")
+        if limit is None:
+            tree = tree.limit(max_rows + 1)
+        else:
+            value = limit.expression
+            if not isinstance(value, exp.Literal) or value.is_string or not value.this.isdigit():
+                raise ValueError("LIMIT must be a non-negative integer")
+            if int(value.this) > max_rows + 1:
+                tree = tree.limit(max_rows + 1)
     return tree.sql(dialect="mysql")
 
 
 def run_query(sql, explain=False):
-    sql = validated_sql(sql)
+    sql = validated_sql(sql, max_rows=100)
     with connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute("SET SESSION MAX_EXECUTION_TIME=15000")
@@ -47,7 +57,7 @@ def run_query(sql, explain=False):
                 cursor.execute(sql)
             rows = cursor.fetchmany(101)
             conn.rollback()
-    return json.dumps({"validation": "passed", "rows": rows[:100], "truncated": len(rows) > 100}, default=str, ensure_ascii=False)
+    return json.dumps({"validation": "passed", "executed_sql": sql if not explain else None, "rows": rows[:100], "truncated": len(rows) > 100}, default=str, ensure_ascii=False)
 
 
 def database_schema():
@@ -77,14 +87,19 @@ def collision_analysis(sql: str):
 
 
 def search_entities(term: str):
+    term = term.strip()
+    if not term:
+        raise ValueError("Entity search term must not be empty")
+    term = term.replace("!", "!!").replace("%", "!%").replace("_", "!_")
     fields = {"ship_ais": ("name", "type", "ptms_destination", "mmsi"), "shp_data": ("object_name", "object_type")}
     results = []
     with connection() as conn:
         with conn.cursor() as cursor:
+            cursor.execute("SET SESSION MAX_EXECUTION_TIME=15000")
             cursor.execute("START TRANSACTION READ ONLY")
             for table, columns in fields.items():
                 for column in columns:
-                    sql = f"SELECT DISTINCT `{column}` AS value FROM `{table}` WHERE `{column}` LIKE %s LIMIT 20"
+                    sql = f"SELECT DISTINCT `{column}` AS value FROM `{table}` WHERE `{column}` LIKE %s ESCAPE '!' LIMIT 20"
                     cursor.execute("EXPLAIN " + sql, (f"%{term}%",))
                     cursor.execute(sql, (f"%{term}%",))
                     results.extend({"table": table, "column": column, "value": row["value"]} for row in cursor.fetchall())

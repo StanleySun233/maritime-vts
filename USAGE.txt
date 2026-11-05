@@ -8,13 +8,19 @@ Run a question:
 
 python llm-vts/main.py "Which vessels are in the strait?"
 
-The JSON output contains the answer and the tool call trace. The model can inspect the schema, find entities, search knowledge, validate SQL and perform vessel, traffic flow and collision queries. Each SQL statement is checked with EXPLAIN before execution. Results contain at most 100 rows.
+The JSON output contains the answer and the tool call trace. The model can inspect the schema, find entities, search knowledge, validate SQL and perform vessel, traffic flow and collision queries. Each SQL statement is checked with EXPLAIN before execution. Queries return at most 100 rows and indicate truncation. Query results include the SQL executed with a row limit.
 
 The knowledge collection starts empty. Import text, Markdown or text-based PDF documents:
 
 python llm-vts/knowledge.py /path/to/rules.pdf /path/to/definitions.txt
 
-VTS_KNOWLEDGE_DIR selects the persistent Chroma directory. Document import and search use the configured embedding endpoint. Keep the embedding model consistent for an existing collection. An empty collection does not supply maritime rules.
+VTS_KNOWLEDGE_DIR selects the persistent Chroma directory. Document import and search use the configured embedding endpoint. Keep the embedding model consistent for an existing collection. Reimporting a file replaces its previous chunks. An empty collection does not supply maritime rules.
+
+Run the VTS-SQL evaluation after configuring the model and database:
+
+python maritime-qa/ours.py --split dev --output ours.csv
+
+The evaluation compares all returned column values and row multiplicities. Empty results, truncated results and query failures are inconclusive. The reference queries use the same read-only database tool and row limit.
 
 Run the isolated tests:
 

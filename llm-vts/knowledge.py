@@ -30,7 +30,7 @@ class Knowledge:
         if store._collection.count() == 0:
             return {"documents": [], "status": "knowledge base is empty"}
         docs = store.similarity_search_with_relevance_scores(query, k=4, score_threshold=0.3)
-        return {"documents": [{"content": doc.page_content, "source": doc.metadata.get("source"), "score": score} for doc, score in docs]}
+        return {"documents": [{"content": doc.page_content, "source": doc.metadata.get("source"), "page": doc.metadata.get("page"), "score": score} for doc, score in docs]}
 
     def ingest(self, path):
         path = Path(path).resolve()
@@ -43,7 +43,11 @@ class Knowledge:
         chunks = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150).split_documents(documents)
         if not chunks:
             raise ValueError("The document contains no text")
-        self.vectorstore().add_documents(chunks)
+        store = self.vectorstore()
+        previous = store.get(where={"source": str(path)})["ids"]
+        store.add_documents(chunks)
+        if previous:
+            store.delete(ids=previous)
         return len(chunks)
 
 
