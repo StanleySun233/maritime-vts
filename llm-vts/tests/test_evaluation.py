@@ -28,10 +28,10 @@ class EvaluationTests(unittest.TestCase):
                     self.assertNotIn("@CNOW", sql.upper())
                     validated_sql(sql, max_rows=100)
 
-    def run_case(self, actual, expected):
+    def run_case(self, actual, expected, reference="SELECT name FROM ship_ais"):
         trace = [{"id": "call-1", "name": "query_database", "arguments": {"sql": "SELECT name FROM ship_ais"}}, {"tool_call_id": "call-1", "result": actual}]
         with patch.object(evaluation, "run_agent", return_value=("answer", trace)), patch.object(evaluation, "run_query", return_value=json.dumps(expected)):
-            return evaluation.evaluate_item({"question": "question", "query": "SELECT name FROM ship_ais"})
+            return evaluation.evaluate_item({"question": "question", "query": reference})
 
     def test_exact_rows_match_case_insensitively_for_columns(self):
         actual = json.dumps({"rows": [{"NAME": "A"}, {"NAME": "B"}], "truncated": False})
@@ -41,6 +41,20 @@ class EvaluationTests(unittest.TestCase):
     def test_values_are_not_ignored_when_names_match(self):
         actual = json.dumps({"rows": [{"name": "A", "speed": 12}], "truncated": False})
         expected = {"rows": [{"name": "A", "speed": 2}], "truncated": False}
+        self.assertEqual(self.run_case(actual, expected)["status"], "fail")
+
+    def test_reference_order_is_checked(self):
+        expected = {"rows": [{"name": "A"}, {"name": "B"}], "truncated": False}
+        reversed_rows = json.dumps({"rows": [{"name": "B"}, {"name": "A"}], "truncated": False})
+        result = self.run_case(reversed_rows, expected, "SELECT name FROM ship_ais ORDER BY name")
+        self.assertEqual(result["status"], "inconclusive")
+        self.assertIn("order differs", result["reason"])
+        self.assertEqual(result["metric"], "sql_result_comparison")
+        self.assertEqual(self.run_case(reversed_rows, expected)["status"], "pass")
+
+    def test_duplicate_rows_are_not_discarded(self):
+        expected = {"rows": [{"name": "A"}, {"name": "A"}], "truncated": False}
+        actual = json.dumps({"rows": [{"name": "A"}], "truncated": False})
         self.assertEqual(self.run_case(actual, expected)["status"], "fail")
 
     def test_empty_or_truncated_results_are_inconclusive(self):

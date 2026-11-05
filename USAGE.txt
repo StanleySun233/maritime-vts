@@ -14,13 +14,13 @@ The knowledge collection starts empty. Import text, Markdown or text-based PDF d
 
 python llm-vts/knowledge.py /path/to/rules.pdf /path/to/definitions.txt
 
-VTS_KNOWLEDGE_DIR selects the persistent Chroma directory. Document import and search use the configured embedding endpoint. Keep the embedding model consistent for an existing collection. Reimporting a file replaces its previous chunks. An empty collection does not supply maritime rules.
+VTS_KNOWLEDGE_DIR selects the persistent Chroma directory. Document import and search use the configured embedding endpoint. Keep the embedding model consistent for an existing collection. Reimporting a file replaces its previous chunks. Search returns the nearest chunks with their source and vector distance; it does not apply a calibrated relevance threshold. An empty collection does not supply maritime rules.
 
 Run the VTS-SQL evaluation after configuring the model and database:
 
 python maritime-qa/ours.py --split dev --output ours.csv
 
-The evaluation compares all returned column values and row multiplicities. Empty results, truncated results and query failures are inconclusive. The reference queries use the same read-only database tool and row limit. The dataset's @CNOW reference resolves to the latest ship_ais timestamp. Use a fixed database snapshot for reproducible comparisons.
+The evaluation measures SQL result comparison only; it does not assess the final answer or autonomous tool selection. It compares all returned column values and row multiplicities, and checks row order when the reference query has a top-level ORDER BY. Order differences with the same rows are inconclusive because the reference order may contain ties. Empty results, truncated results and query failures are inconclusive. The reference queries use the same read-only database tool and row limit. The dataset's @CNOW reference resolves to the latest ship_ais timestamp. Use a fixed database snapshot for reproducible comparisons.
 
 The bundled test_dataset.json contains 38 examples in each of train and dev; all 38 examples are identical across the two splits. Results on dev do not measure generalization to unseen examples.
 

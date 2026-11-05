@@ -58,6 +58,26 @@ class Knowledge:
 
 
 class OpenAIProtocolTests(unittest.TestCase):
+    def test_invalid_tool_arguments_do_not_return_an_empty_answer(self):
+        def respond(request):
+            message = {"role": "assistant", "content": None, "tool_calls": [{"id": "bad-1", "type": "function", "function": {"name": "query_database", "arguments": '{"sql":'}}]}
+            return httpx.Response(200, json={"id": "chatcmpl-test", "object": "chat.completion", "created": 1, "model": "mock", "choices": [{"index": 0, "message": message, "finish_reason": "tool_calls"}]})
+
+        with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            model = ChatOpenAI(model="mock", api_key="test", base_url="https://mock.invalid/v1", http_client=client, max_retries=0)
+            with self.assertRaisesRegex(ValueError, "invalid tool call arguments"):
+                agent.run_agent([{"role": "user", "content": "ask"}], model=model, knowledge=Knowledge())
+
+    def test_truncated_response_is_not_reported_as_an_answer(self):
+        def respond(request):
+            message = {"role": "assistant", "content": "partial"}
+            return httpx.Response(200, json={"id": "chatcmpl-test", "object": "chat.completion", "created": 1, "model": "mock", "choices": [{"index": 0, "message": message, "finish_reason": "length"}]})
+
+        with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            model = ChatOpenAI(model="mock", api_key="test", base_url="https://mock.invalid/v1", http_client=client, max_retries=0)
+            with self.assertRaisesRegex(ValueError, "truncated"):
+                agent.run_agent([{"role": "user", "content": "ask"}], model=model, knowledge=Knowledge())
+
     def test_tool_evidence_and_sql_retry_over_chat_completions(self):
         requests = []
         calls = []

@@ -28,7 +28,7 @@ def reference_sql(sql):
 def evaluate_item(item):
     answer, trace = run_agent([{"role": "user", "content": item["question"]}])
     executions = [entry for entry in trace if entry.get("name") in QUERY_TOOLS]
-    result = {"question": item["question"], "answer": answer, "sql": "", "status": "inconclusive", "reason": "No SQL query was executed"}
+    result = {"question": item["question"], "answer": answer, "sql": "", "metric": "sql_result_comparison", "status": "inconclusive", "reason": "No SQL query was executed"}
     if not executions:
         return result
     execution = executions[-1]
@@ -49,7 +49,9 @@ def evaluate_item(item):
         result["reason"] = "Query result was truncated"
         return result
     try:
-        expected = json.loads(run_query(reference_sql(item["query"])))
+        reference = reference_sql(item["query"])
+        ordered = sqlglot.parse_one(reference, read="mysql").args.get("order") is not None
+        expected = json.loads(run_query(reference))
     except (ValueError, pymysql.MySQLError, sqlglot.errors.SqlglotError, OSError) as exc:
         result["reason"] = "Reference query failed: " + str(exc)
         return result
@@ -59,8 +61,16 @@ def evaluate_item(item):
     if not expected["rows"] and not actual["rows"]:
         result["reason"] = "Both results were empty"
         return result
-    normalize = lambda rows: sorted(json.dumps({key.lower(): value for key, value in row.items()}, sort_keys=True, ensure_ascii=False) for row in rows)
-    result["status"] = "pass" if normalize(expected["rows"]) == normalize(actual["rows"]) else "fail"
+    normalize = lambda rows: [json.dumps({key.lower(): value for key, value in row.items()}, sort_keys=True, ensure_ascii=False) for row in rows]
+    expected_rows = normalize(expected["rows"])
+    actual_rows = normalize(actual["rows"])
+    if ordered and expected_rows != actual_rows and sorted(expected_rows) == sorted(actual_rows):
+        result["reason"] = "Row order differs; reference ordering may contain ties"
+        return result
+    if not ordered:
+        expected_rows.sort()
+        actual_rows.sort()
+    result["status"] = "pass" if expected_rows == actual_rows else "fail"
     result["reason"] = "Results match" if result["status"] == "pass" else "Results differ"
     return result
 
@@ -80,7 +90,7 @@ def main():
         rows.append(row)
         print(json.dumps(row, ensure_ascii=False))
     with open(args.output, "w", encoding="utf-8", newline="") as output:
-        writer = csv.DictWriter(output, fieldnames=["question", "answer", "sql", "status", "reason"])
+        writer = csv.DictWriter(output, fieldnames=["question", "answer", "sql", "metric", "status", "reason"])
         writer.writeheader()
         writer.writerows(rows)
 

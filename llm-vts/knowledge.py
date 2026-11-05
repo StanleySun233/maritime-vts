@@ -29,8 +29,8 @@ class Knowledge:
         store = self.vectorstore()
         if store._collection.count() == 0:
             return {"documents": [], "status": "knowledge base is empty"}
-        docs = store.similarity_search_with_relevance_scores(query, k=4, score_threshold=0.3)
-        return {"documents": [{"content": doc.page_content, "source": doc.metadata.get("source"), "page": doc.metadata.get("page"), "score": score} for doc, score in docs]}
+        docs = store.similarity_search_with_score(query, k=4)
+        return {"documents": [{"content": doc.page_content, "source": doc.metadata.get("source"), "page": doc.metadata.get("page"), "distance": distance} for doc, distance in docs]}
 
     def ingest(self, path):
         path = Path(path).resolve()

@@ -70,6 +70,12 @@ class AgentTests(unittest.TestCase):
             with self.subTest(messages=messages), self.assertRaises(ValueError):
                 agent.run_agent(messages, model=FakeModel())
 
+    def test_blank_model_response_is_rejected(self):
+        model = FakeModel()
+        model.invoke = lambda messages: AIMessage(content=" ")
+        with self.assertRaisesRegex(ValueError, "empty response"):
+            agent.run_agent([{"role": "user", "content": "ask"}], model=model)
+
     def test_explain_precedes_query(self):
         conn = Connection()
         with patch.object(react_tools, "connection", return_value=conn):
@@ -146,6 +152,30 @@ class AgentTests(unittest.TestCase):
 
 
 class KnowledgeTests(unittest.TestCase):
+    def test_retrieval_does_not_discard_unnormalized_embeddings(self):
+        import os
+        import tempfile
+
+        from langchain_core.embeddings import Embeddings
+        import knowledge
+
+        class FakeEmbeddings(Embeddings):
+            def embed_documents(self, texts):
+                return [[10.0, 1.0] for _ in texts]
+
+            def embed_query(self, text):
+                return [10.0, 0.0]
+
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "rules.txt"
+            source.write_text("Relevant rule", encoding="utf-8")
+            with patch.dict(os.environ, {"VTS_KNOWLEDGE_DIR": str(Path(directory) / "store"), "OPENAI_API_KEY": "test"}), patch.object(knowledge, "OpenAIEmbeddings", return_value=FakeEmbeddings()):
+                knowledge.Knowledge().ingest(source)
+                documents = knowledge.Knowledge().search("rule")["documents"]
+        self.assertEqual(len(documents), 1)
+        self.assertEqual(documents[0]["content"], "Relevant rule")
+        self.assertAlmostEqual(documents[0]["distance"], 1.0)
+
     def test_ingest_and_retrieve_persistent_documents(self):
         import os
         import tempfile
