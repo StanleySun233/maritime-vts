@@ -1,0 +1,23 @@
+Maritime VTS backend
+
+Install the packages in requirements.txt in Python 3.12.
+
+Set OPENAI_API_KEY, OPENAI_BASE_URL and OPENAI_MODEL for an OpenAI-compatible chat model with tool calling. Set OPENAI_EMBEDDING_MODEL to a model supported by the same endpoint. Set VTS_DB_HOST, VTS_DB_PORT, VTS_DB_USER, VTS_DB_PASSWORD and VTS_DB_NAME for MySQL 8. Use a database account with SELECT privileges only. llm-vts/.env.example lists the configuration variables.
+
+Run a question:
+
+python llm-vts/main.py "Which vessels are in the strait?"
+
+The JSON output contains the answer and the tool call trace. The model can inspect the schema, find entities, search knowledge, validate SQL and perform vessel, traffic flow and collision queries. Each SQL statement is checked with EXPLAIN before execution. Results contain at most 100 rows.
+
+The knowledge collection starts empty. Import text, Markdown or text-based PDF documents:
+
+python llm-vts/knowledge.py /path/to/rules.pdf /path/to/definitions.txt
+
+VTS_KNOWLEDGE_DIR selects the persistent Chroma directory. Document import and search use the configured embedding endpoint. Keep the embedding model consistent for an existing collection. An empty collection does not supply maritime rules.
+
+Run the isolated tests:
+
+python -m unittest discover -s llm-vts/tests -v
+
+README.md describes the historical RAGFlow and Flask version. AIS records and the original knowledge collection are not included in this repository.

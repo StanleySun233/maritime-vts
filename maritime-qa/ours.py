@@ -1,68 +1,36 @@
-import pandas as pd
 import json
-from utils.llm_factory import generate_answer
-from utils.ragflow import get_answer_by_agent_id
+import sys
+from pathlib import Path
+
+import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "llm-vts"))
+from agent import run_agent
 from utils.db_util import query
 from utils.sql_compare import compare_sql_results
-from prompt.sql_prompts import SQL_TEST_SYSTEM
-import yaml
-cfg = yaml.load(open("./api.yaml").read())
-
-api_key = cfg["OURS"]["api_key"]
-agent_id = cfg["OURS"]["agent_id"]
-base_url = cfg["OURS"]["base_url"]
-
-js = json.loads(open("./data/qr_test.json").read())
-dataset = []
-
-for i in js:
-    if i["dataset"] == 'train':
-        dataset.append({
-            "original_question": i["original_question"],
-            "answer": i["original_query"]
-        })
-
-df = pd.DataFrame(dataset)
-ans = []
-bl = []
 
 
-for idx, row in df.iterrows():
-    origin_question = row["original_question"]
-    answer = row["answer"].replace("NOW()", '(SELECT max(temp.last_updated) FROM ship_ais as temp)').replace("@CNOW", "(SELECT max(temp.last_updated) FROM ship_ais as temp)")
-    
-    llm_answer = get_answer_by_agent_id(base_url, api_key, agent_id, origin_question).replace("```sql", "").replace("```", "")
-    
-    llm_answer = llm_answer.replace("NOW()", '(SELECT max(temp.last_updated) FROM ship_ais as temp)').replace("@CNOW", "(SELECT max(temp.last_updated) FROM ship_ais as temp)")
-    
-    answer = answer.replace("NOW()", '(SELECT max(temp.last_updated) FROM ship_ais as temp)').replace("@CNOW", "(SELECT max(temp.last_updated) FROM ship_ais as temp)")
-
-    answer_query = query(answer, "db.yaml")
-    llm_answer_query = query(llm_answer, "db.yaml")
-    
-    resp, remark = compare_sql_results(answer_query, llm_answer_query)
-    
-    print(f"========= Question =========")
-    print(f"{origin_question}")
-    print(f"========= Ours generated SQL =========")
-    print(f"{llm_answer}")
-    print(f"========= Original SQL =========")
-    print(f"{answer}")
-    print(f"========= RAGFlow Query Result =========")
-    print(f"{'Error/No Result SQL' if isinstance(llm_answer_query, str) else llm_answer_query.head(10).to_markdown()}")
-    print(f"========= Original SQL Query Result =========")
-    print(f"{'Error/No Result SQL' if isinstance(answer_query, str) else answer_query.head(10).to_markdown()}")
-    print(f"========= Judge Result =========")
-    print(f"{resp}")
-    print(f"========= Remark =========")
-    print(f"{remark}")
-    
-    ans.append(llm_answer)
-    bl.append(resp)
-
-# 保存结果
-df["llm_answer"] = ans
-df["llm_judge"] = bl
-print(f"Model: OURS")
-print(df["llm_judge"].describe())
-df.to_csv(f"./ours.csv", index=False) 
+data = json.loads((Path(__file__).parent / "data" / "test_dataset.json").read_text(encoding="utf-8"))
+rows = []
+for item in data["train"]:
+    answer, trace = run_agent([{"role": "user", "content": item["question"]}])
+    executions = [entry for entry in trace if entry.get("name") in {"query_database", "traffic_flow", "collision_analysis"}]
+    sql = executions[-1]["arguments"]["sql"] if executions else ""
+    if sql:
+        call_id = executions[-1]["id"]
+        result = next(entry["result"] for entry in trace if entry.get("tool_call_id") == call_id)
+        try:
+            result = json.loads(result)
+        except json.JSONDecodeError:
+            result = {"error": result}
+        if "rows" not in result or result["truncated"]:
+            passed, remark = False, "Query failed or returned truncated results"
+        else:
+            expected = query(item["query"], "db.yaml")
+            actual = pd.DataFrame(result["rows"])
+            passed, remark = compare_sql_results(expected, actual)
+    else:
+        passed, remark = False, "No SQL query was executed"
+    rows.append({"question": item["question"], "answer": answer, "sql": sql, "passed": passed, "remark": remark})
+    print(json.dumps(rows[-1], ensure_ascii=False, default=str))
+pd.DataFrame(rows).to_csv("ours.csv", index=False)

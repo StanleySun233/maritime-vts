@@ -65,34 +65,3 @@ def query_sql_valid(sql, eng):
         return "SUCCESS"
     except pymysql.MySQLError as e:
         return f"<ERROR>{e}"
-
-
-def fix_sql(sql, question, error_text, cfg):
-    template = """The user's SQL code has an error. 
-    Please repair the SQL code according to the error.
-     Please do not output any explanation or comments on the repair. 
-     Please directly output the executable SQL code.\n
-                The user asked question and a sql:
-                {rethink_input}
-                But error occurs:
-                {error_message}
-                When querying the code:
-                {sql_input}""".format(rethink_input=question, error_message=error_text, sql_input=sql)
-    resp = util.get_answer_by_agent_id(cfg, agent_id=cfg["api"]["sql_debugger"]["agent_id"], question=template)['data'][
-        'answer']
-    return resp
-
-
-def question_rethink(question, cfg):
-    resp = util.get_answer_by_agent_id(cfg,
-                                       agent_id=cfg["api"]["question_rethink"]["agent_id"],
-                                       question=question)['data']['answer']
-    return resp
-
-
-def ask_knowledge_by_keyword(keyword, cfg):
-    template = """What is {keyword}?""".format(keyword=keyword)
-    resp = util.get_answer_by_agent_id(cfg,
-                                       agent_id=cfg["api"]["keyword_knowledge"]["agent_id"],
-                                       question=template)['data']['answer']
-    return resp

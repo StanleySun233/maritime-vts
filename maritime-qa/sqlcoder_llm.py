@@ -1,7 +1,6 @@
 import pandas as pd
 import json
 from utils.llm_factory import generate_answer
-from utils.ragflow import get_answer_by_agent_id
 from utils.db_util import query
 from utils.sql_compare import compare_sql_results
 from prompt.sql_prompts import SQL_TEST_SYSTEM
@@ -26,7 +25,6 @@ for idx, row in df.iterrows():
     origin_question = row["original_question"]
     answer = row["answer"].replace("NOW()", '(SELECT max(temp.last_updated) FROM ship_ais as temp)').replace("@CNOW", "(SELECT max(temp.last_updated) FROM ship_ais as temp)")
     
-    # 使用RAGFlow模型生成SQL
     llm_answer = inference.run_inference(origin_question,knowledge=row["knowledge"],prompt_file="./scoder/prompt.md",metadata_file="./scoder/metadata.sql",instruction_file="./scoder/instruction.md").replace("```sql", "").replace("```", "")
     
     llm_answer = llm_answer.replace("NOW()", '(SELECT max(temp.last_updated) FROM ship_ais as temp)').replace("@CNOW", "(SELECT max(temp.last_updated) FROM ship_ais as temp)")
