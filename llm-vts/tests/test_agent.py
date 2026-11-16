@@ -65,6 +65,14 @@ class FakeModel:
 
 
 class AgentTests(unittest.TestCase):
+    def test_historical_schema_reference_is_available_without_database(self):
+        tools = {tool.name: tool for tool in react_tools.make_tools(None)}
+        with patch.object(react_tools, "connection", side_effect=AssertionError("unexpected database access")):
+            reference = json.loads(tools["maritime_schema_reference"].invoke({}))
+        self.assertEqual(reference["source"], "maritime-qa/scoder/metadata.sql")
+        self.assertIn("ship_ais_quarter", reference["content"])
+        self.assertIn("database_schema", tools["maritime_schema_reference"].description)
+
     def test_invalid_history_is_rejected(self):
         for messages in ([], [{"role": "system", "content": "instructions"}], [{"role": "user", "content": []}]):
             with self.subTest(messages=messages), self.assertRaises(ValueError):

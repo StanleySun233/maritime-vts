@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import pymysql
 import sqlglot
@@ -72,6 +73,11 @@ def database_schema():
             return json.dumps(cursor.fetchall(), ensure_ascii=False, default=str)
 
 
+def maritime_schema_reference():
+    path = Path(__file__).resolve().parent.parent / "maritime-qa" / "scoder" / "metadata.sql"
+    return json.dumps({"source": "maritime-qa/scoder/metadata.sql", "content": path.read_text(encoding="utf-8")}, ensure_ascii=False)
+
+
 def validate_query(sql: str):
     return run_query(sql, explain=True)
 
@@ -119,6 +125,7 @@ def make_tools(knowledge):
 
     entries = [
         (database_schema, "database_schema", "Inspect available MySQL tables and columns before writing SQL."),
+        (maritime_schema_reference, "maritime_schema_reference", "Read the project's historical maritime schema reference; verify actual tables and columns with database_schema."),
         (search_entities, "search_entities", "Find vessel or area entities by name, type, destination, or MMSI; report fields with truncated matches."),
         (search_knowledge, "search_knowledge", "Retrieve maritime rules and definitions with sources; use next_offset to inspect further matches."),
         (validate_query, "validate_query", "Validate a read-only MySQL SELECT using EXPLAIN before execution."),
