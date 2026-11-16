@@ -25,7 +25,7 @@ To load the bundled shapefiles, install llm-vts/data/requirements.txt in additio
 
 python llm-vts/data/load_shp_data.py llm-vts/data/general/Strait.shp
 
-The loader creates and inserts into the configured MySQL database. Without a path argument, it loads the bundled Singapore port shapefile.
+The loader creates and inserts into the configured MySQL database. Without a path argument, it loads the bundled Singapore port shapefile. The bundled port type and name are read from its DBF fields; missing feature names are stored as NULL. The bundled Ancharage.shp is assigned the type anchorage.
 
 The knowledge collection starts empty. Import text, Markdown or text-based PDF documents:
 

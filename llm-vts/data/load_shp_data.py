@@ -35,6 +35,19 @@ def swap_coordinates(geom):
     return transform(geom, lambda coordinates: coordinates[:, [1, 0, 2]], include_z=True)
 
 
+def prepare_shapefile(shp_file):
+    shp_name = format_shp_name(Path(shp_file).name)
+    if shp_name == "ancharage":
+        shp_name = "anchorage"
+    gdf = gpd.read_file(shp_file)
+    gdf["geometry"] = gdf.geometry.apply(swap_coordinates)
+    gdf["object_type"] = gdf["object_typ"].fillna(shp_name) if "object_typ" in gdf else shp_name
+    name_field = next((field for field in ("object_nam", "OBJNAM", "layer") if field in gdf), None)
+    gdf["object_name"] = gdf[name_field].astype(object).where(gdf[name_field].notna(), None) if name_field else None
+    gdf["sid"] = range(1, len(gdf) + 1)
+    return gdf
+
+
 def process_shapefiles(shp_files, table_name="shp_data"):
     config = load_config()
     connection = connect_to_mysql(config)
@@ -54,17 +67,8 @@ def process_shapefiles(shp_files, table_name="shp_data"):
     cursor.execute(create_table_query)
 
     for shp_file in shp_files:
-        shp_name = format_shp_name(shp_file).split("/")[-1].split(".")[0]
-        gdf = gpd.read_file(shp_file)
-        gdf['geometry'] = gdf['geometry'].apply(swap_coordinates)
+        gdf = prepare_shapefile(shp_file)
         print(gdf)
-        # Add name, sid, and OBJNAM fields
-        gdf["object_type"] = shp_name
-        gdf["sid"] = [_ + 1 for _ in range(len(gdf))]
-        if 'Strait' not in shp_file:
-            gdf["object_name"] = gdf.get("OBJNAM", "Unknown")  # Ensure OBJNAM exists
-        else:
-            gdf["object_name"] = gdf.get("layer", "Unknown")
         print(gdf["object_name"])
         for _, row in gdf.iterrows():
             geom_wkt = row.geometry.wkt  # Convert geometry to WKT format

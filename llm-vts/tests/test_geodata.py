@@ -45,6 +45,31 @@ class GeodataTests(unittest.TestCase):
         converted = self.loader.swap_coordinates(self.Point(10, 20, 30))
         self.assertEqual((converted.x, converted.y, converted.z), (20, 10, 30))
 
+    def test_bundled_port_uses_existing_type_and_name(self):
+        path = PROJECT / "data" / "port" / "singapore_port.shp"
+        original = self.geopandas.read_file(path).iloc[0]
+        prepared = self.loader.prepare_shapefile(str(path)).iloc[0]
+        self.assertEqual(prepared["object_type"], original["object_typ"])
+        self.assertEqual(prepared["object_name"], original["object_nam"])
+        self.assertEqual(prepared["object_type"], "port")
+
+    def test_missing_names_are_mysql_null_and_anchorage_type_is_normalized(self):
+        from pymysql.converters import escape_item
+
+        path = PROJECT / "data" / "general" / "Ancharage.shp"
+        data = self.loader.prepare_shapefile(str(path))
+        self.assertEqual(set(data["object_type"]), {"anchorage"})
+        missing = [value for value in data["object_name"] if value is None]
+        self.assertEqual(len(missing), 8)
+        escaped = [escape_item(value, "utf8mb4") for value in data["object_name"]]
+        self.assertEqual(escaped.count("NULL"), 8)
+
+    def test_strait_names_come_from_source_layer(self):
+        path = PROJECT / "data" / "general" / "Strait.shp"
+        original = self.geopandas.read_file(path)
+        prepared = self.loader.prepare_shapefile(str(path))
+        self.assertEqual(prepared["object_name"].tolist(), original["layer"].tolist())
+
     def test_default_shapefile_exists_without_database_access(self):
         with patch.object(sys, "argv", ["load_shp_data.py"]), patch.object(self.loader, "process_shapefiles") as process:
             self.loader.main()
