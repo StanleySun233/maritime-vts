@@ -12,6 +12,8 @@ The JSON output contains the answer and the tool call trace. The model can inspe
 
 If an agent call fails, the original exception includes the completed tool trace in its notes. The trace can contain database results.
 
+Malformed tool arguments with a call ID are returned to the model as a tool error so it can retry. Repeated attempts are bounded by the graph recursion limit; SQL execution remains subject to validation.
+
 Entity search matches without regard to letter case, returns up to 20 matches per table field and identifies fields with additional matches.
 
 To load the bundled shapefiles, install llm-vts/data/requirements.txt in addition to the root requirements, configure llm-vts/config.yaml, and run:

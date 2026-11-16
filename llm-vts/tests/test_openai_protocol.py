@@ -13,6 +13,7 @@ from unittest.mock import patch
 import httpx
 from langchain_core.embeddings import Embeddings
 from langchain_openai import ChatOpenAI
+from langgraph.errors import GraphRecursionError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -178,15 +179,64 @@ class OpenAIProtocolTests(unittest.TestCase):
         self.assertTrue(any(message.get("tool_call_id") == "knowledge-0" and '"next_offset": 4' in message["content"] for message in requests[1]["messages"]))
         self.assertTrue(any(entry.get("tool_call_id") == "knowledge-1" and "page-4" in entry["result"] for entry in trace))
 
-    def test_invalid_tool_arguments_do_not_return_an_empty_answer(self):
+    def test_model_can_repair_invalid_tool_arguments(self):
+        requests = []
+        calls = []
+
+        def respond(request):
+            requests.append(json.loads(request.content))
+            index = len(requests) - 1
+            if index == 0:
+                tool_calls = [{"id": "bad-1", "type": "function", "function": {"name": "query_database", "arguments": '{"sql":'}}]
+            elif index == 1:
+                tool_calls = [{"id": "good-1", "type": "function", "function": {"name": "query_database", "arguments": json.dumps({"sql": "SELECT name FROM ship_ais"})}}]
+            else:
+                tool_calls = []
+            message = {"role": "assistant", "content": None, "tool_calls": tool_calls} if tool_calls else {"role": "assistant", "content": "SHIP A"}
+            return httpx.Response(200, json={"id": "chatcmpl-test", "object": "chat.completion", "created": 1, "model": "mock", "choices": [{"index": 0, "message": message, "finish_reason": "tool_calls" if tool_calls else "stop"}]})
+
+        with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            model = ChatOpenAI(model="mock", api_key="test", base_url="https://mock.invalid/v1", http_client=client, max_retries=0)
+            with patch.object(react_tools, "connection", side_effect=lambda: Connection(calls)):
+                answer, trace = agent.run_agent([{"role": "user", "content": "ask"}], model=model, knowledge=Knowledge())
+        self.assertEqual(answer, "SHIP A")
+        self.assertTrue(any(message.get("tool_call_id") == "bad-1" and "Invalid tool arguments" in message["content"] for message in requests[1]["messages"]))
+        self.assertTrue(any(entry.get("id") == "bad-1" and entry.get("status") == "invalid" for entry in trace))
+        self.assertEqual(calls[-2:], ["EXPLAIN SELECT name FROM ship_ais LIMIT 101", "SELECT name FROM ship_ais LIMIT 101"])
+
+    def test_mixed_valid_and_invalid_calls_both_receive_results(self):
+        requests = []
+
+        def respond(request):
+            requests.append(json.loads(request.content))
+            if len(requests) == 1:
+                calls = [{"id": "reference", "type": "function", "function": {"name": "maritime_schema_reference", "arguments": "{}"}}, {"id": "invalid", "type": "function", "function": {"name": "query_database", "arguments": '{"sql":'}}]
+                message = {"role": "assistant", "content": None, "tool_calls": calls}
+                finish = "tool_calls"
+            else:
+                message = {"role": "assistant", "content": "answer"}
+                finish = "stop"
+            return httpx.Response(200, json={"id": "chatcmpl-test", "object": "chat.completion", "created": 1, "model": "mock", "choices": [{"index": 0, "message": message, "finish_reason": finish}]})
+
+        with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            model = ChatOpenAI(model="mock", api_key="test", base_url="https://mock.invalid/v1", http_client=client, max_retries=0)
+            answer, trace = agent.run_agent([{"role": "user", "content": "ask"}], model=model, knowledge=Knowledge())
+        self.assertEqual(answer, "answer")
+        tool_messages = {message["tool_call_id"]: message["content"] for message in requests[1]["messages"] if message["role"] == "tool"}
+        self.assertIn("ship_ais_quarter", tool_messages["reference"])
+        self.assertIn("Invalid tool arguments", tool_messages["invalid"])
+        self.assertTrue(any(entry.get("tool_call_id") == "invalid" and entry.get("status") == "error" for entry in trace))
+
+    def test_repeated_invalid_calls_stop_at_graph_limit(self):
         def respond(request):
             message = {"role": "assistant", "content": None, "tool_calls": [{"id": "bad-1", "type": "function", "function": {"name": "query_database", "arguments": '{"sql":'}}]}
             return httpx.Response(200, json={"id": "chatcmpl-test", "object": "chat.completion", "created": 1, "model": "mock", "choices": [{"index": 0, "message": message, "finish_reason": "tool_calls"}]})
 
         with httpx.Client(transport=httpx.MockTransport(respond)) as client:
             model = ChatOpenAI(model="mock", api_key="test", base_url="https://mock.invalid/v1", http_client=client, max_retries=0)
-            with self.assertRaisesRegex(ValueError, "invalid tool call arguments"):
+            with self.assertRaises(GraphRecursionError) as raised:
                 agent.run_agent([{"role": "user", "content": "ask"}], model=model, knowledge=Knowledge())
+        self.assertTrue(any("tool_trace=" in note and "Invalid tool arguments" in note for note in raised.exception.__notes__))
 
     def test_truncated_response_is_not_reported_as_an_answer(self):
         def respond(request):

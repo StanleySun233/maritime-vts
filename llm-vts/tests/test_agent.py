@@ -90,9 +90,9 @@ class AgentTests(unittest.TestCase):
                 self.messages.append(messages)
                 if len(self.messages) == 1:
                     return AIMessage(content="", tool_calls=[{"name": "maritime_schema_reference", "args": {}, "id": "reference", "type": "tool_call"}])
-                return AIMessage(content="", invalid_tool_calls=[{"name": "query_database", "args": "{", "id": "invalid", "error": "invalid JSON", "type": "invalid_tool_call"}])
+                return AIMessage(content="", invalid_tool_calls=[{"name": "query_database", "args": "{", "id": None, "error": "invalid JSON", "type": "invalid_tool_call"}])
 
-        with self.assertRaisesRegex(ValueError, "invalid tool call arguments") as raised:
+        with self.assertRaisesRegex(ValueError, "without an ID") as raised:
             agent.run_agent([{"role": "user", "content": "ask"}], model=InvalidAfterTool())
         notes = raised.exception.__notes__
         trace = json.loads(next(note.removeprefix("tool_trace=") for note in notes if note.startswith("tool_trace=")))
