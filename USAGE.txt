@@ -14,6 +14,12 @@ If an agent call fails, the original exception includes the completed tool trace
 
 Entity search matches without regard to letter case, returns up to 20 matches per table field and identifies fields with additional matches.
 
+To load the bundled shapefiles, install llm-vts/data/requirements.txt in addition to the root requirements, configure llm-vts/config.yaml, and run:
+
+python llm-vts/data/load_shp_data.py llm-vts/data/general/Strait.shp
+
+The loader creates and inserts into the configured MySQL database. Without a path argument, it loads the bundled Singapore port shapefile.
+
 The knowledge collection starts empty. Import text, Markdown or text-based PDF documents:
 
 python llm-vts/knowledge.py /path/to/rules.pdf /path/to/definitions.txt
