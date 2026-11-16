@@ -1,15 +1,23 @@
+import csv
+import importlib.util
+import io
 import json
+import os
 import sys
+import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
 import httpx
+from langchain_core.embeddings import Embeddings
 from langchain_openai import ChatOpenAI
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import agent
+import knowledge as knowledge_module
 import react_tools
 
 
@@ -58,6 +66,88 @@ class Knowledge:
 
 
 class OpenAIProtocolTests(unittest.TestCase):
+    def test_imported_knowledge_flows_through_agent_and_pagination(self):
+        class FakeEmbeddings(Embeddings):
+            def embed_documents(self, texts):
+                return [[float(text.rsplit(" ", 1)[-1]), 0.0] for text in texts]
+
+            def embed_query(self, text):
+                return [1.0, 0.0]
+
+        requests = []
+
+        def respond(request):
+            requests.append(json.loads(request.content))
+            index = len(requests) - 1
+            if index < 2:
+                arguments = {"query": "rule"} if index == 0 else {"query": "rule", "offset": 4}
+                message = {"role": "assistant", "content": None, "tool_calls": [{"id": f"knowledge-{index}", "type": "function", "function": {"name": "search_knowledge", "arguments": json.dumps(arguments)}}]}
+                finish = "tool_calls"
+            else:
+                message = {"role": "assistant", "content": "answer"}
+                finish = "stop"
+            return httpx.Response(200, json={"id": "chatcmpl-test", "object": "chat.completion", "created": 1, "model": "mock", "choices": [{"index": 0, "message": message, "finish_reason": finish}]})
+
+        with tempfile.TemporaryDirectory() as directory, httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            root = Path(directory)
+            with patch.dict(os.environ, {"VTS_KNOWLEDGE_DIR": str(root / "store"), "OPENAI_API_KEY": "test"}), patch.object(knowledge_module, "OpenAIEmbeddings", return_value=FakeEmbeddings()):
+                store = knowledge_module.Knowledge()
+                for number in range(1, 6):
+                    source = root / f"rule-{number}.txt"
+                    source.write_text(f"Rule {number}", encoding="utf-8")
+                    store.ingest(source)
+                model = ChatOpenAI(model="mock", api_key="test", base_url="https://mock.invalid/v1", http_client=client, max_retries=0)
+                answer, trace = agent.run_agent([{"role": "user", "content": "ask"}], model=model, knowledge=store)
+        self.assertEqual(answer, "answer")
+        first = json.loads(next(entry["result"] for entry in trace if entry.get("tool_call_id") == "knowledge-0"))
+        second = json.loads(next(entry["result"] for entry in trace if entry.get("tool_call_id") == "knowledge-1"))
+        self.assertEqual(first["next_offset"], 4)
+        self.assertIsNone(second["next_offset"])
+        self.assertEqual({doc["content"] for doc in first["documents"] + second["documents"]}, {f"Rule {n}" for n in range(1, 6)})
+        self.assertTrue(all(doc["source"].endswith(".txt") for doc in first["documents"] + second["documents"]))
+
+    def test_question_to_evaluation_csv_with_tool_evidence(self):
+        spec = importlib.util.spec_from_file_location("vts_evaluation_integration", Path(__file__).resolve().parents[2] / "maritime-qa" / "ours.py")
+        evaluation = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(evaluation)
+        requests = []
+        calls = []
+        sequence = [("schema-1", "database_schema", {}), ("query-1", "query_database", {"sql": "SELECT name FROM ship_ais"})]
+
+        def respond(request):
+            requests.append(json.loads(request.content))
+            index = len(requests) - 1
+            if index < len(sequence):
+                call_id, name, arguments = sequence[index]
+                message = {"role": "assistant", "content": None, "tool_calls": [{"id": call_id, "type": "function", "function": {"name": name, "arguments": json.dumps(arguments)}}]}
+                finish = "tool_calls"
+            else:
+                message = {"role": "assistant", "content": "SHIP A"}
+                finish = "stop"
+            return httpx.Response(200, json={"id": "chatcmpl-test", "object": "chat.completion", "created": 1, "model": "mock", "choices": [{"index": 0, "message": message, "finish_reason": finish}]})
+
+        with tempfile.TemporaryDirectory() as directory, httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            root = Path(directory)
+            dataset = root / "dataset.json"
+            output = root / "results.csv"
+            dataset.write_text(json.dumps({"dev": [{"question": "Which vessel?", "query": "SELECT name FROM ship_ais"}]}), encoding="utf-8")
+            model = ChatOpenAI(model="mock", api_key="test", base_url="https://mock.invalid/v1", http_client=client, max_retries=0)
+            arguments = ["ours.py", "--dataset", str(dataset), "--output", str(output)]
+            with patch.dict(os.environ, {"OPENAI_MODEL": "mock", "OPENAI_API_KEY": "test"}), patch.object(agent, "ChatOpenAI", return_value=model), patch.object(react_tools, "connection", side_effect=lambda: Connection(calls)), patch.object(sys, "argv", arguments), redirect_stdout(io.StringIO()):
+                evaluation.main()
+            with output.open(encoding="utf-8", newline="") as saved:
+                rows = list(csv.DictReader(saved))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["status"], "pass")
+        self.assertEqual(rows[0]["answer"], "SHIP A")
+        trace = json.loads(rows[0]["tool_trace"])
+        self.assertEqual([entry["name"] for entry in trace if "name" in entry], ["database_schema", "query_database"])
+        self.assertTrue(any(entry.get("tool_call_id") == "query-1" and "SHIP A" in entry["result"] for entry in trace))
+        for index, sql in enumerate(calls):
+            if sql == "SELECT name FROM ship_ais LIMIT 101":
+                self.assertEqual(calls[index - 1], "EXPLAIN " + sql)
+        self.assertEqual(calls.count("SELECT name FROM ship_ais LIMIT 101"), 2)
+
     def test_model_can_request_another_knowledge_page(self):
         requests = []
         offsets = []
