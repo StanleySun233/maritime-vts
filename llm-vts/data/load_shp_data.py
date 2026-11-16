@@ -40,6 +40,9 @@ def prepare_shapefile(shp_file):
     if shp_name == "ancharage":
         shp_name = "anchorage"
     gdf = gpd.read_file(shp_file)
+    if gdf.crs is None:
+        raise ValueError(f"Missing coordinate reference system: {shp_file}")
+    gdf = gdf.to_crs(epsg=4326)
     gdf["geometry"] = gdf.geometry.apply(swap_coordinates)
     gdf["object_type"] = gdf["object_typ"].fillna(shp_name) if "object_typ" in gdf else shp_name
     name_field = next((field for field in ("object_nam", "OBJNAM", "layer") if field in gdf), None)
@@ -49,6 +52,7 @@ def prepare_shapefile(shp_file):
 
 
 def process_shapefiles(shp_files, table_name="shp_data"):
+    prepared = [(shp_file, prepare_shapefile(shp_file)) for shp_file in shp_files]
     config = load_config()
     connection = connect_to_mysql(config)
     cursor = connection.cursor()
@@ -66,8 +70,7 @@ def process_shapefiles(shp_files, table_name="shp_data"):
     """
     cursor.execute(create_table_query)
 
-    for shp_file in shp_files:
-        gdf = prepare_shapefile(shp_file)
+    for shp_file, gdf in prepared:
         print(gdf)
         print(gdf["object_name"])
         for _, row in gdf.iterrows():

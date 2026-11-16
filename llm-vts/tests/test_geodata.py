@@ -34,6 +34,28 @@ class GeodataTests(unittest.TestCase):
         swapped_point = self.Point(inside_hole.y, inside_hole.x)
         self.assertFalse(converted.contains(swapped_point))
 
+    def test_projected_strait_is_reprojected_before_axis_swap(self):
+        path = PROJECT / "data" / "general" / "Strait.shp"
+        original = self.geopandas.read_file(path)
+        index = next(i for i, geom in enumerate(original.geometry) if len(geom.interiors) > 0)
+        projected = original.to_crs(epsg=3857)
+        with patch.object(self.loader.gpd, "read_file", return_value=projected):
+            converted = self.loader.prepare_shapefile(str(path)).geometry.iloc[index]
+        source = original.geometry.iloc[index]
+        self.assertEqual(len(converted.interiors), len(source.interiors))
+        self.assertAlmostEqual(converted.area, source.area, places=10)
+        inside_hole = self.Polygon(source.interiors[0]).representative_point()
+        self.assertFalse(converted.contains(self.Point(inside_hole.y, inside_hole.x)))
+
+    def test_missing_crs_stops_before_database_connection(self):
+        path = PROJECT / "data" / "general" / "PilotBoardingGround.shp"
+        valid = self.geopandas.read_file(path)
+        missing = self.geopandas.GeoDataFrame(valid.drop(columns="geometry"), geometry=list(valid.geometry))
+        with patch.object(self.loader.gpd, "read_file", side_effect=[valid, missing]), patch.object(self.loader, "connect_to_mysql") as connect:
+            with self.assertRaisesRegex(ValueError, "Missing coordinate reference system"):
+                self.loader.process_shapefiles([str(path), str(path)])
+        connect.assert_not_called()
+
     def test_bundled_pilot_point_coordinates_are_swapped(self):
         data = self.geopandas.read_file(PROJECT / "data" / "general" / "PilotBoardingGround.shp")
         original = data.geometry.iloc[0]
