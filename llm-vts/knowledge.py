@@ -13,6 +13,7 @@ class Knowledge:
     def __init__(self):
         self.path = os.environ.get("VTS_KNOWLEDGE_DIR", str(Path(__file__).parent / "knowledge_store"))
         self.store = None
+        self.search_cache = None
 
     def vectorstore(self):
         if self.store is None:
@@ -25,12 +26,22 @@ class Knowledge:
             self.store = Chroma(collection_name="maritime", embedding_function=embeddings, persist_directory=self.path)
         return self.store
 
-    def search(self, query):
+    def search(self, query, offset=0):
+        if offset < 0:
+            raise ValueError("Search offset must be non-negative")
         store = self.vectorstore()
-        if store._collection.count() == 0:
-            return {"documents": [], "status": "knowledge base is empty"}
-        docs = store.similarity_search_with_score(query, k=4)
-        return {"documents": [{"content": doc.page_content, "source": doc.metadata.get("source"), "page": doc.metadata.get("page"), "distance": distance} for doc, distance in docs]}
+        cached = self.search_cache
+        if offset == 0 or cached is None or cached[0] != query:
+            count = store._collection.count()
+            if count == 0:
+                self.search_cache = None
+                return {"documents": [], "next_offset": None, "status": "knowledge base is empty"}
+            docs = store.similarity_search_with_score(query, k=count)
+            docs.sort(key=lambda item: (item[1], item[0].id))
+            self.search_cache = (query, docs)
+        else:
+            docs = cached[1]
+        return {"documents": [{"content": doc.page_content, "source": doc.metadata.get("source"), "page": doc.metadata.get("page"), "distance": distance} for doc, distance in docs[offset:offset + 4]], "next_offset": offset + 4 if len(docs) > offset + 4 else None}
 
     def ingest(self, path):
         path = Path(path).resolve()
@@ -45,6 +56,7 @@ class Knowledge:
             raise ValueError("The document contains no text")
         store = self.vectorstore()
         previous = store.get(where={"source": str(path)})["ids"]
+        self.search_cache = None
         store.add_documents(chunks)
         if previous:
             store.delete(ids=previous)

@@ -145,7 +145,8 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(json.loads(react_tools.search_entities("A_B% !")), {"matches": [], "truncated_fields": []})
         selects = [(sql, args) for sql, args in conn.cur.calls if sql.startswith("SELECT DISTINCT")]
         self.assertEqual(len(selects), 6)
-        self.assertTrue(all(args == (("%A!_B!% !!%",),) for _, args in selects))
+        self.assertTrue(all(args == (("%a!_b!% !!%",),) for _, args in selects))
+        self.assertTrue(all("WHERE LOWER(" in sql for sql, _ in selects))
         self.assertTrue(all("ESCAPE '!'" in sql for sql, _ in selects))
         with self.assertRaises(ValueError):
             react_tools.search_entities("  ")
@@ -170,6 +171,73 @@ class AgentTests(unittest.TestCase):
 
 
 class KnowledgeTests(unittest.TestCase):
+    def test_retrieval_can_continue_past_first_page(self):
+        import os
+        import tempfile
+
+        from langchain_core.embeddings import Embeddings
+        import knowledge
+
+        class FakeEmbeddings(Embeddings):
+            def embed_documents(self, texts):
+                return [[float(text.rsplit(" ", 1)[-1]), 0.0] for text in texts]
+
+            def embed_query(self, text):
+                return [1.0, 0.0]
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.dict(os.environ, {"VTS_KNOWLEDGE_DIR": str(root / "store"), "OPENAI_API_KEY": "test"}), patch.object(knowledge, "OpenAIEmbeddings", return_value=FakeEmbeddings()):
+                store = knowledge.Knowledge()
+                self.assertIsNone(store.search("rule")["next_offset"])
+                for number in range(1, 6):
+                    source = root / f"rule-{number}.txt"
+                    source.write_text(f"Rule {number}", encoding="utf-8")
+                    store.ingest(source)
+                first = store.search("rule")
+                second = store.search("rule", offset=first["next_offset"])
+                self.assertEqual(first["next_offset"], 4)
+                self.assertIsNone(second["next_offset"])
+                self.assertEqual({doc["content"] for doc in first["documents"] + second["documents"]}, {f"Rule {n}" for n in range(1, 6)})
+                with self.assertRaises(ValueError):
+                    store.search("rule", offset=-1)
+
+    def test_pagination_preserves_equal_distance_results(self):
+        import os
+        import tempfile
+
+        from langchain_core.embeddings import Embeddings
+        import knowledge
+
+        class FakeEmbeddings(Embeddings):
+            def __init__(self):
+                self.query_count = 0
+
+            def embed_documents(self, texts):
+                return [[1.0, 0.0] for _ in texts]
+
+            def embed_query(self, text):
+                self.query_count += 1
+                return [1.0, 0.0]
+
+        embeddings = FakeEmbeddings()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.dict(os.environ, {"VTS_KNOWLEDGE_DIR": str(root / "store"), "OPENAI_API_KEY": "test"}), patch.object(knowledge, "OpenAIEmbeddings", return_value=embeddings):
+                store = knowledge.Knowledge()
+                for number in range(12):
+                    source = root / f"rule-{number}.txt"
+                    source.write_text(f"Rule {number}", encoding="utf-8")
+                    store.ingest(source)
+                first = store.search("rule")
+                second = store.search("rule", first["next_offset"])
+                third = store.search("rule", second["next_offset"])
+                contents = [doc["content"] for page in (first, second, third) for doc in page["documents"]]
+                self.assertEqual(len(contents), 12)
+                self.assertEqual(len(set(contents)), 12)
+                self.assertIsNone(third["next_offset"])
+                self.assertEqual(embeddings.query_count, 1)
+
     def test_retrieval_does_not_discard_unnormalized_embeddings(self):
         import os
         import tempfile

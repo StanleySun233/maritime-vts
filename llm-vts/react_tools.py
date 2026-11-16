@@ -92,7 +92,7 @@ def search_entities(term: str):
     term = term.strip()
     if not term:
         raise ValueError("Entity search term must not be empty")
-    term = term.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+    term = term.lower().replace("!", "!!").replace("%", "!%").replace("_", "!_")
     fields = {"ship_ais": ("name", "type", "ptms_destination", "mmsi"), "shp_data": ("object_name", "object_type")}
     results = []
     truncated_fields = []
@@ -102,7 +102,7 @@ def search_entities(term: str):
             cursor.execute("START TRANSACTION READ ONLY")
             for table, columns in fields.items():
                 for column in columns:
-                    sql = f"SELECT DISTINCT `{column}` AS value FROM `{table}` WHERE `{column}` LIKE %s ESCAPE '!' ORDER BY `{column}` LIMIT 21"
+                    sql = f"SELECT DISTINCT `{column}` AS value FROM `{table}` WHERE LOWER(`{column}`) LIKE %s ESCAPE '!' ORDER BY `{column}` LIMIT 21"
                     cursor.execute("EXPLAIN " + sql, (f"%{term}%",))
                     cursor.execute(sql, (f"%{term}%",))
                     rows = cursor.fetchall()
@@ -114,13 +114,13 @@ def search_entities(term: str):
 
 
 def make_tools(knowledge):
-    def search_knowledge(query: str):
-        return json.dumps(knowledge.search(query), ensure_ascii=False)
+    def search_knowledge(query: str, offset: int = 0):
+        return json.dumps(knowledge.search(query, offset=offset), ensure_ascii=False)
 
     entries = [
         (database_schema, "database_schema", "Inspect available MySQL tables and columns before writing SQL."),
         (search_entities, "search_entities", "Find vessel or area entities by name, type, destination, or MMSI; report fields with truncated matches."),
-        (search_knowledge, "search_knowledge", "Retrieve maritime rules and definitions, including their sources."),
+        (search_knowledge, "search_knowledge", "Retrieve maritime rules and definitions with sources; use next_offset to inspect further matches."),
         (validate_query, "validate_query", "Validate a read-only MySQL SELECT using EXPLAIN before execution."),
         (query_database, "query_database", "Execute a read-only MySQL SELECT for vessel and geographic data."),
         (traffic_flow, "traffic_flow", "Execute a read-only SQL query for a vessel traffic flow analysis."),

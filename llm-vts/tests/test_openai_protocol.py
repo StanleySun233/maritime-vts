@@ -53,11 +53,41 @@ class Connection:
 
 
 class Knowledge:
-    def search(self, query):
+    def search(self, query, offset=0):
         return {"documents": [{"content": "Rule text", "source": "rules.txt"}]}
 
 
 class OpenAIProtocolTests(unittest.TestCase):
+    def test_model_can_request_another_knowledge_page(self):
+        requests = []
+        offsets = []
+
+        class PaginatedKnowledge:
+            def search(self, query, offset=0):
+                offsets.append(offset)
+                return {"documents": [{"source": f"page-{offset}"}], "next_offset": 4 if offset == 0 else None}
+
+        def respond(request):
+            body = json.loads(request.content)
+            requests.append(body)
+            index = len(requests) - 1
+            if index < 2:
+                args = {"query": "rule"} if index == 0 else {"query": "rule", "offset": 4}
+                message = {"role": "assistant", "content": None, "tool_calls": [{"id": f"knowledge-{index}", "type": "function", "function": {"name": "search_knowledge", "arguments": json.dumps(args)}}]}
+                finish = "tool_calls"
+            else:
+                message = {"role": "assistant", "content": "answer"}
+                finish = "stop"
+            return httpx.Response(200, json={"id": "chatcmpl-test", "object": "chat.completion", "created": 1, "model": "mock", "choices": [{"index": 0, "message": message, "finish_reason": finish}]})
+
+        with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            model = ChatOpenAI(model="mock", api_key="test", base_url="https://mock.invalid/v1", http_client=client, max_retries=0)
+            answer, trace = agent.run_agent([{"role": "user", "content": "ask"}], model=model, knowledge=PaginatedKnowledge())
+        self.assertEqual(answer, "answer")
+        self.assertEqual(offsets, [0, 4])
+        self.assertTrue(any(message.get("tool_call_id") == "knowledge-0" and '"next_offset": 4' in message["content"] for message in requests[1]["messages"]))
+        self.assertTrue(any(entry.get("tool_call_id") == "knowledge-1" and "page-4" in entry["result"] for entry in trace))
+
     def test_invalid_tool_arguments_do_not_return_an_empty_answer(self):
         def respond(request):
             message = {"role": "assistant", "content": None, "tool_calls": [{"id": "bad-1", "type": "function", "function": {"name": "query_database", "arguments": '{"sql":'}}]}
