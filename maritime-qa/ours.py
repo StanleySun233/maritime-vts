@@ -28,7 +28,7 @@ def reference_sql(sql):
 def evaluate_item(item):
     answer, trace = run_agent([{"role": "user", "content": item["question"]}])
     executions = [entry for entry in trace if entry.get("name") in QUERY_TOOLS]
-    result = {"question": item["question"], "answer": answer, "sql": "", "metric": "sql_result_comparison", "status": "inconclusive", "reason": "No SQL query was executed"}
+    result = {"question": item["question"], "answer": answer, "sql": "", "metric": "sql_result_comparison", "status": "inconclusive", "reason": "No SQL query was executed", "tool_trace": trace}
     if not executions:
         return result
     execution = executions[-1]
@@ -85,12 +85,12 @@ def main():
     dataset = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
     items = dataset[args.split][:args.limit]
     with open(args.output, "x", encoding="utf-8", newline="") as output:
-        writer = csv.DictWriter(output, fieldnames=["question", "answer", "sql", "metric", "status", "reason"])
+        writer = csv.DictWriter(output, fieldnames=["question", "answer", "sql", "metric", "status", "reason", "tool_trace"])
         writer.writeheader()
         output.flush()
         for item in items:
             row = evaluate_item(item)
-            writer.writerow(row)
+            writer.writerow({**row, "tool_trace": json.dumps(row["tool_trace"], ensure_ascii=False)})
             output.flush()
             print(json.dumps(row, ensure_ascii=False))
 

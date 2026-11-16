@@ -17,7 +17,8 @@ from react_tools import validated_sql
 
 class EvaluationTests(unittest.TestCase):
     def test_completed_rows_survive_later_failure(self):
-        row = {"question": "first", "answer": "answer", "sql": "SELECT 1", "metric": "sql_result_comparison", "status": "pass", "reason": "Results match"}
+        trace = [{"id": "call-1", "name": "search_knowledge", "arguments": {"query": "规则"}}, {"tool_call_id": "call-1", "status": "success", "result": "evidence"}]
+        row = {"question": "first", "answer": "answer", "sql": "SELECT 1", "metric": "sql_result_comparison", "status": "pass", "reason": "Results match", "tool_trace": trace}
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             dataset = root / "data.json"
@@ -28,7 +29,9 @@ class EvaluationTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "invalid tool call"):
                     evaluation.main()
             with output.open(encoding="utf-8", newline="") as saved:
-                self.assertEqual(list(csv.DictReader(saved)), [row])
+                saved_rows = list(csv.DictReader(saved))
+                self.assertEqual(json.loads(saved_rows[0]["tool_trace"]), trace)
+                self.assertEqual(saved_rows[0]["question"], row["question"])
 
     def test_existing_results_are_not_overwritten(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -101,3 +104,4 @@ class EvaluationTests(unittest.TestCase):
         result = self.run_case("invalid query", {"rows": [], "truncated": False})
         self.assertEqual(result["status"], "inconclusive")
         self.assertIn("invalid query", result["reason"])
+        self.assertEqual(result["tool_trace"][-1]["result"], "invalid query")
