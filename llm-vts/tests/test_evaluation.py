@@ -105,3 +105,12 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(result["status"], "inconclusive")
         self.assertIn("invalid query", result["reason"])
         self.assertEqual(result["tool_trace"][-1]["result"], "invalid query")
+
+    def test_visualization_query_is_evaluated(self):
+        query = "SELECT type, COUNT(*) AS vessel_count FROM ship_ais GROUP BY type"
+        rows = {"rows": [{"type": "TANKER", "vessel_count": 3}], "truncated": False}
+        trace = [{"id": "chart-1", "name": "visualization_data", "arguments": {"sql": query}}, {"tool_call_id": "chart-1", "result": json.dumps(rows)}]
+        with patch.object(evaluation, "run_agent", return_value=("answer", trace)), patch.object(evaluation, "run_query", return_value=json.dumps(rows)):
+            result = evaluation.evaluate_item({"question": "Count vessels by type", "query": query})
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["sql"], query)

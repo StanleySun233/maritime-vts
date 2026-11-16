@@ -112,6 +112,24 @@ class AgentTests(unittest.TestCase):
                 react_tools.traffic_flow("SELECT name FROM ship_ais")
         self.assertNotIn("SELECT name FROM ship_ais LIMIT 101", conn.cur.calls)
 
+    def test_visualization_data_uses_validated_sql(self):
+        conn = Connection()
+        conn.cur.fetchmany = lambda size: [{"type": "TANKER", "vessel_count": 3}]
+        tool = next(tool for tool in react_tools.make_tools(None) if tool.name == "visualization_data")
+        with patch.object(react_tools, "connection", return_value=conn):
+            result = json.loads(tool.invoke({"sql": "SELECT type, COUNT(*) AS vessel_count FROM ship_ais GROUP BY type"}))
+        sql = "SELECT type, COUNT(*) AS vessel_count FROM ship_ais GROUP BY type LIMIT 101"
+        self.assertEqual(conn.cur.calls[-2:], ["EXPLAIN " + sql, sql])
+        self.assertEqual(result["rows"], [{"type": "TANKER", "vessel_count": 3}])
+
+    def test_visualization_data_stops_when_validation_fails(self):
+        conn = Connection(fail=True)
+        tool = next(tool for tool in react_tools.make_tools(None) if tool.name == "visualization_data")
+        with patch.object(react_tools, "connection", return_value=conn):
+            with self.assertRaisesRegex(ValueError, "invalid query"):
+                tool.invoke({"sql": "SELECT name FROM ship_ais"})
+        self.assertNotIn("SELECT name FROM ship_ais LIMIT 101", conn.cur.calls)
+
     def test_row_limit_preserves_user_limit_and_offset(self):
         self.assertEqual(react_tools.validated_sql("SELECT * FROM ship_ais LIMIT 0", max_rows=100), "SELECT * FROM ship_ais LIMIT 0")
         self.assertEqual(react_tools.validated_sql("SELECT * FROM ship_ais LIMIT 5 OFFSET 2", max_rows=100), "SELECT * FROM ship_ais LIMIT 5 OFFSET 2")

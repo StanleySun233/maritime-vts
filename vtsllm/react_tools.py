@@ -94,6 +94,10 @@ def collision_analysis(sql: str):
     return run_query(sql)
 
 
+def visualization_data(sql: str):
+    return run_query(sql)
+
+
 def search_entities(term: str):
     term = term.strip()
     if not term:
@@ -132,5 +136,6 @@ def make_tools(knowledge):
         (query_database, "query_database", "Execute a read-only MySQL SELECT for vessel and geographic data."),
         (traffic_flow, "traffic_flow", "Execute a read-only SQL query for a vessel traffic flow analysis."),
         (collision_analysis, "collision_analysis", "Execute a read-only SQL query for a vessel collision warning analysis."),
+        (visualization_data, "visualization_data", "Prepare tabular visualization data using a read-only SQL query, including any SQL aggregation."),
     ]
     return [StructuredTool.from_function(func=func, name=name, description=description) for func, name, description in entries]

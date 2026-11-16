@@ -12,7 +12,7 @@ from vtsllm.agent import run_agent
 from vtsllm.react_tools import run_query, validated_sql
 
 
-QUERY_TOOLS = {"query_database", "traffic_flow", "collision_analysis"}
+QUERY_TOOLS = {"query_database", "traffic_flow", "collision_analysis", "visualization_data"}
 
 
 def reference_sql(sql):
