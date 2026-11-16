@@ -10,6 +10,8 @@ python llm-vts/main.py "Which vessels are in the strait?"
 
 The JSON output contains the answer and the tool call trace. The model can inspect the schema, consult the historical maritime schema reference, find entities, search knowledge, validate SQL and perform vessel, traffic flow and collision queries. The reference may differ from the connected database and does not populate the knowledge collection. Each SQL statement is checked with EXPLAIN before execution. Queries return at most 100 rows and indicate truncation. Query results include the SQL executed with a row limit. MySQL session variables are rejected; use explicit values or subqueries.
 
+If an agent call fails, the original exception includes the completed tool trace in its notes. The trace can contain database results.
+
 Entity search matches without regard to letter case, returns up to 20 matches per table field and identifies fields with additional matches.
 
 The knowledge collection starts empty. Import text, Markdown or text-based PDF documents:

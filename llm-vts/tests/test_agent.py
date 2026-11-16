@@ -84,6 +84,23 @@ class AgentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "empty response"):
             agent.run_agent([{"role": "user", "content": "ask"}], model=model)
 
+    def test_failed_call_preserves_completed_tool_trace(self):
+        class InvalidAfterTool(FakeModel):
+            def invoke(self, messages):
+                self.messages.append(messages)
+                if len(self.messages) == 1:
+                    return AIMessage(content="", tool_calls=[{"name": "maritime_schema_reference", "args": {}, "id": "reference", "type": "tool_call"}])
+                return AIMessage(content="", invalid_tool_calls=[{"name": "query_database", "args": "{", "id": "invalid", "error": "invalid JSON", "type": "invalid_tool_call"}])
+
+        with self.assertRaisesRegex(ValueError, "invalid tool call arguments") as raised:
+            agent.run_agent([{"role": "user", "content": "ask"}], model=InvalidAfterTool())
+        notes = raised.exception.__notes__
+        trace = json.loads(next(note.removeprefix("tool_trace=") for note in notes if note.startswith("tool_trace=")))
+        self.assertEqual(trace[0]["name"], "maritime_schema_reference")
+        self.assertEqual(trace[1]["tool_call_id"], "reference")
+        self.assertEqual(trace[1]["status"], "success")
+        self.assertIn("ship_ais_quarter", trace[1]["result"])
+
     def test_explain_precedes_query(self):
         conn = Connection()
         with patch.object(react_tools, "connection", return_value=conn):

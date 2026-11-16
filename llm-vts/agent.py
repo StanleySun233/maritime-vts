@@ -1,3 +1,4 @@
+import json
 import os
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -52,11 +53,19 @@ def run_agent(messages, model=None, knowledge=None):
             history.append(HumanMessage(content=message["content"]))
         else:
             history.append(AIMessage(content=message["content"]))
-    result = create_agent(model, knowledge).invoke({"messages": history}, config={"recursion_limit": 25})
     trace = []
-    for message in result["messages"][len(history):]:
-        if isinstance(message, AIMessage):
-            trace.extend({"id": call["id"], "name": call["name"], "arguments": call["args"]} for call in message.tool_calls)
-        elif isinstance(message, ToolMessage):
-            trace.append({"tool_call_id": message.tool_call_id, "result": message.content, "status": message.status})
-    return result["messages"][-1].content, trace
+    answer = None
+    try:
+        updates = create_agent(model, knowledge).stream({"messages": history}, config={"recursion_limit": 25}, stream_mode="updates")
+        for update in updates:
+            for state in update.values():
+                for message in state["messages"]:
+                    if isinstance(message, AIMessage):
+                        trace.extend({"id": call["id"], "name": call["name"], "arguments": call["args"]} for call in message.tool_calls)
+                        answer = message.content
+                    elif isinstance(message, ToolMessage):
+                        trace.append({"tool_call_id": message.tool_call_id, "result": message.content, "status": message.status})
+    except Exception as exc:
+        exc.add_note("tool_trace=" + json.dumps(trace, ensure_ascii=False, default=str))
+        raise
+    return answer, trace
