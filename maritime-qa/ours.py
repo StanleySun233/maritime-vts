@@ -84,15 +84,15 @@ def main():
     args = parser.parse_args()
     dataset = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
     items = dataset[args.split][:args.limit]
-    rows = []
-    for item in items:
-        row = evaluate_item(item)
-        rows.append(row)
-        print(json.dumps(row, ensure_ascii=False))
-    with open(args.output, "w", encoding="utf-8", newline="") as output:
+    with open(args.output, "x", encoding="utf-8", newline="") as output:
         writer = csv.DictWriter(output, fieldnames=["question", "answer", "sql", "metric", "status", "reason"])
         writer.writeheader()
-        writer.writerows(rows)
+        output.flush()
+        for item in items:
+            row = evaluate_item(item)
+            writer.writerow(row)
+            output.flush()
+            print(json.dumps(row, ensure_ascii=False))
 
 
 if __name__ == "__main__":

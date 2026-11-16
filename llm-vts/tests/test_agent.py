@@ -142,13 +142,31 @@ class AgentTests(unittest.TestCase):
         conn = Connection()
         conn.cur = EntityCursor()
         with patch.object(react_tools, "connection", return_value=conn):
-            self.assertEqual(json.loads(react_tools.search_entities("A_B% !")), [])
+            self.assertEqual(json.loads(react_tools.search_entities("A_B% !")), {"matches": [], "truncated_fields": []})
         selects = [(sql, args) for sql, args in conn.cur.calls if sql.startswith("SELECT DISTINCT")]
         self.assertEqual(len(selects), 6)
         self.assertTrue(all(args == (("%A!_B!% !!%",),) for _, args in selects))
         self.assertTrue(all("ESCAPE '!'" in sql for sql, _ in selects))
         with self.assertRaises(ValueError):
             react_tools.search_entities("  ")
+
+    def test_entity_search_reports_truncated_fields(self):
+        class EntityCursor(Cursor):
+            def execute(self, sql, *args):
+                self.calls.append(sql)
+                self.sql = sql
+
+            def fetchall(self):
+                count = 21 if "`name` AS value FROM `ship_ais`" in self.sql else 20
+                return [{"value": str(i)} for i in range(count)]
+
+        conn = Connection()
+        conn.cur = EntityCursor()
+        with patch.object(react_tools, "connection", return_value=conn):
+            result = json.loads(react_tools.search_entities("vessel"))
+        self.assertEqual(result["truncated_fields"], [{"table": "ship_ais", "column": "name"}])
+        self.assertEqual(len(result["matches"]), 120)
+        self.assertTrue(all("ORDER BY" in sql and "LIMIT 21" in sql for sql in conn.cur.calls if sql.startswith("SELECT DISTINCT")))
 
 
 class KnowledgeTests(unittest.TestCase):

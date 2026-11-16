@@ -95,18 +95,22 @@ def search_entities(term: str):
     term = term.replace("!", "!!").replace("%", "!%").replace("_", "!_")
     fields = {"ship_ais": ("name", "type", "ptms_destination", "mmsi"), "shp_data": ("object_name", "object_type")}
     results = []
+    truncated_fields = []
     with connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute("SET SESSION MAX_EXECUTION_TIME=15000")
             cursor.execute("START TRANSACTION READ ONLY")
             for table, columns in fields.items():
                 for column in columns:
-                    sql = f"SELECT DISTINCT `{column}` AS value FROM `{table}` WHERE `{column}` LIKE %s ESCAPE '!' LIMIT 20"
+                    sql = f"SELECT DISTINCT `{column}` AS value FROM `{table}` WHERE `{column}` LIKE %s ESCAPE '!' ORDER BY `{column}` LIMIT 21"
                     cursor.execute("EXPLAIN " + sql, (f"%{term}%",))
                     cursor.execute(sql, (f"%{term}%",))
-                    results.extend({"table": table, "column": column, "value": row["value"]} for row in cursor.fetchall())
+                    rows = cursor.fetchall()
+                    if len(rows) > 20:
+                        truncated_fields.append({"table": table, "column": column})
+                    results.extend({"table": table, "column": column, "value": row["value"]} for row in rows[:20])
             conn.rollback()
-    return json.dumps(results, default=str, ensure_ascii=False)
+    return json.dumps({"matches": results, "truncated_fields": truncated_fields}, default=str, ensure_ascii=False)
 
 
 def make_tools(knowledge):
@@ -115,7 +119,7 @@ def make_tools(knowledge):
 
     entries = [
         (database_schema, "database_schema", "Inspect available MySQL tables and columns before writing SQL."),
-        (search_entities, "search_entities", "Find vessel or area entities by name, type, destination, or MMSI."),
+        (search_entities, "search_entities", "Find vessel or area entities by name, type, destination, or MMSI; report fields with truncated matches."),
         (search_knowledge, "search_knowledge", "Retrieve maritime rules and definitions, including their sources."),
         (validate_query, "validate_query", "Validate a read-only MySQL SELECT using EXPLAIN before execution."),
         (query_database, "query_database", "Execute a read-only MySQL SELECT for vessel and geographic data."),

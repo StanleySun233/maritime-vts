@@ -1,6 +1,11 @@
 import importlib.util
+import csv
+import io
 import json
+import sys
+import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -11,6 +16,34 @@ from react_tools import validated_sql
 
 
 class EvaluationTests(unittest.TestCase):
+    def test_completed_rows_survive_later_failure(self):
+        row = {"question": "first", "answer": "answer", "sql": "SELECT 1", "metric": "sql_result_comparison", "status": "pass", "reason": "Results match"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "data.json"
+            output = root / "results.csv"
+            dataset.write_text(json.dumps({"dev": [{}, {}]}), encoding="utf-8")
+            arguments = ["ours.py", "--dataset", str(dataset), "--output", str(output)]
+            with patch.object(sys, "argv", arguments), patch.object(evaluation, "evaluate_item", side_effect=[row, ValueError("invalid tool call")]), redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(ValueError, "invalid tool call"):
+                    evaluation.main()
+            with output.open(encoding="utf-8", newline="") as saved:
+                self.assertEqual(list(csv.DictReader(saved)), [row])
+
+    def test_existing_results_are_not_overwritten(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "data.json"
+            output = root / "results.csv"
+            dataset.write_text(json.dumps({"dev": [{}]}), encoding="utf-8")
+            output.write_text("previous results", encoding="utf-8")
+            arguments = ["ours.py", "--dataset", str(dataset), "--output", str(output)]
+            with patch.object(sys, "argv", arguments), patch.object(evaluation, "evaluate_item") as evaluate:
+                with self.assertRaises(FileExistsError):
+                    evaluation.main()
+            self.assertEqual(output.read_text(encoding="utf-8"), "previous results")
+            evaluate.assert_not_called()
+
     def test_dataset_time_reference_is_resolved_without_changing_literals(self):
         sql = evaluation.reference_sql("SELECT @CNOW, '@CNOW'")
         self.assertEqual(sql, "SELECT (SELECT MAX(last_updated) FROM ship_ais), '@CNOW'")
