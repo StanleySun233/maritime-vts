@@ -12,7 +12,7 @@ from unittest.mock import patch
 spec = importlib.util.spec_from_file_location("vts_evaluation", Path(__file__).resolve().parents[2] / "maritime-qa" / "ours.py")
 evaluation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(evaluation)
-from react_tools import validated_sql
+from vtsllm.react_tools import validated_sql
 
 
 class EvaluationTests(unittest.TestCase):

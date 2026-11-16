@@ -15,11 +15,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_openai import ChatOpenAI
 from langgraph.errors import GraphRecursionError
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-import agent
-import knowledge as knowledge_module
-import react_tools
+from vtsllm import agent, knowledge as knowledge_module, react_tools
 
 
 class Cursor:

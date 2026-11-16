@@ -1,15 +1,11 @@
 import json
-import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 from langchain_core.messages import AIMessage
 
-import agent
-import react_tools
+from vtsllm import agent, react_tools
 
 
 class Cursor:
@@ -196,12 +192,21 @@ class AgentTests(unittest.TestCase):
 
 
 class KnowledgeTests(unittest.TestCase):
+    def test_default_knowledge_directory_remains_in_project_data(self):
+        import os
+
+        from vtsllm import knowledge
+
+        with patch.dict(os.environ, {}, clear=True):
+            path = Path(knowledge.Knowledge().path)
+        self.assertEqual(path, Path(__file__).resolve().parents[1] / "knowledge_store")
+
     def test_retrieval_can_continue_past_first_page(self):
         import os
         import tempfile
 
         from langchain_core.embeddings import Embeddings
-        import knowledge
+        from vtsllm import knowledge
 
         class FakeEmbeddings(Embeddings):
             def embed_documents(self, texts):
@@ -232,7 +237,7 @@ class KnowledgeTests(unittest.TestCase):
         import tempfile
 
         from langchain_core.embeddings import Embeddings
-        import knowledge
+        from vtsllm import knowledge
 
         class FakeEmbeddings(Embeddings):
             def __init__(self):
@@ -268,7 +273,7 @@ class KnowledgeTests(unittest.TestCase):
         import tempfile
 
         from langchain_core.embeddings import Embeddings
-        import knowledge
+        from vtsllm import knowledge
 
         class FakeEmbeddings(Embeddings):
             def embed_documents(self, texts):
@@ -292,7 +297,7 @@ class KnowledgeTests(unittest.TestCase):
         import tempfile
 
         from langchain_core.embeddings import Embeddings
-        import knowledge
+        from vtsllm import knowledge
 
         class FakeEmbeddings(Embeddings):
             def embed_documents(self, texts):
@@ -321,7 +326,7 @@ class KnowledgeTests(unittest.TestCase):
         from types import SimpleNamespace
 
         from langchain_core.embeddings import Embeddings
-        import knowledge
+        from vtsllm import knowledge
 
         class FakeEmbeddings(Embeddings):
             def embed_documents(self, texts):

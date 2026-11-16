@@ -6,7 +6,12 @@ Set OPENAI_API_KEY, OPENAI_BASE_URL and OPENAI_MODEL for an OpenAI-compatible ch
 
 Run a question:
 
-python llm-vts/main.py "Which vessels are in the strait?"
+python -m vtsllm "Which vessels are in the strait?"
+
+From the project root, Python callers can use:
+
+from vtsllm.agent import run_agent
+answer, trace = run_agent([{"role": "user", "content": "Which vessels are in the strait?"}])
 
 The JSON output contains the answer and the tool call trace. The model can inspect the schema, consult the historical maritime schema reference, find entities, search knowledge, validate SQL and perform vessel, traffic flow and collision queries. The reference may differ from the connected database and does not populate the knowledge collection. Each SQL statement is checked with EXPLAIN before execution. Queries return at most 100 rows and indicate truncation. Query results include the SQL executed with a row limit. MySQL session variables are rejected; use explicit values or subqueries.
 
@@ -24,7 +29,7 @@ The loader creates and inserts into the configured MySQL database. Without a pat
 
 The knowledge collection starts empty. Import text, Markdown or text-based PDF documents:
 
-python llm-vts/knowledge.py /path/to/rules.pdf /path/to/definitions.txt
+python -m vtsllm.knowledge /path/to/rules.pdf /path/to/definitions.txt
 
 VTS_KNOWLEDGE_DIR selects the persistent Chroma directory. Document import and search use the configured embedding endpoint. Keep the embedding model consistent for an existing collection. Reimporting a file replaces its previous chunks. Search returns up to four nearest chunks with their source and vector distance; next_offset allows retrieval of further matches. Each search ranks all indexed chunks and retains the current result pages in memory, so time and memory use grow with collection size. Search does not apply a calibrated relevance threshold. An empty collection does not supply maritime rules.
 

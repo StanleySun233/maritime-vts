@@ -11,7 +11,7 @@ from pypdf import PdfReader
 
 class Knowledge:
     def __init__(self):
-        self.path = os.environ.get("VTS_KNOWLEDGE_DIR", str(Path(__file__).parent / "knowledge_store"))
+        self.path = os.environ.get("VTS_KNOWLEDGE_DIR", str(Path(__file__).resolve().parent.parent / "llm-vts" / "knowledge_store"))
         self.store = None
         self.search_cache = None
 

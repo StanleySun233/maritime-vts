@@ -7,9 +7,9 @@ from pathlib import Path
 import pymysql
 import sqlglot
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "llm-vts"))
-from agent import run_agent
-from react_tools import run_query, validated_sql
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from vtsllm.agent import run_agent
+from vtsllm.react_tools import run_query, validated_sql
 
 
 QUERY_TOOLS = {"query_database", "traffic_flow", "collision_analysis"}
