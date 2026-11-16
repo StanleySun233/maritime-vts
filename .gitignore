@@ -180,3 +180,5 @@ maritime-vts/.idea/
 maritime-vts/.idea/*
 .local/
 llm-vts/knowledge_store/
+
+/research/
